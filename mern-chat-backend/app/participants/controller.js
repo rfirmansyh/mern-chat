@@ -20,6 +20,7 @@ async function getParticpantsByPUid(req, res) {
     })
 }
 
+
 // GET ALL DETAIL DATA BY USER ID
 async function getAllDetailParticipantsByUid(req, res) {
     const user_id = parseInt(req.body.user_id);

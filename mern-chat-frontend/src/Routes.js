@@ -23,10 +23,6 @@ export default function Routes() {
                     path="/dashboard" 
                     render={() => <Dashboard />}
                     exact/>
-                <Route 
-                    path="/test/render" 
-                    render={() => <TestRender />}
-                    exact/>
             </Switch>
         </BrowserRouter>
     )

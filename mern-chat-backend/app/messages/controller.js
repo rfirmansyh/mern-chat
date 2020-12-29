@@ -7,6 +7,14 @@ async function getAllMessage(req, res) {
     });
 }
 
+async function getMessagesByChatroomId(req, res) {
+    const chatroom_id = parseInt(req.body.chatroom_id);
+    let messages = await Message.find({chatroom_id: chatroom_id});
+    return res.json({
+        data: messages
+    })
+}
+
 async function store(req, res) {
     const payload = req.body;
     let message = new Message(payload);
@@ -18,6 +26,7 @@ async function store(req, res) {
 }
 
 module.exports = {
+    getMessagesByChatroomId,
     getAllMessage,
     store
 }

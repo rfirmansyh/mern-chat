@@ -56,8 +56,8 @@ export default function Index() {
     }, [])
 
     React.useEffect(() => {
-        let id = parseInt(prompt('Masukan User id'));
-        // let id = 1;
+        // let id = parseInt(prompt('Masukan User id'));
+        let id = 1;
         setUserId(id);
         getContacts(id);
         setupSocket(id);
@@ -73,32 +73,43 @@ export default function Index() {
                 setMessages([...messages, message.newMessage]);
                 // contentMessage.current.scrollTop = contentMessage.current.scrollHeight
             })
-            contentMessage.current.scrollTop = contentMessage.current.scrollHeight
         }
-        console.log(messages);
+        contentMessage.current.scrollTop = contentMessage.current.scrollHeight
 
     }, [messages]);
+
+    const changeMessage = async () => {
+        let temp_messages = await axios.post( `${config.api_host}/api/messages/chatroomId`, {
+            chatroom_id: selectedContact === null ? 1 : selectedContact.detail_current.chatroom_id,
+        }).then(response => {
+            console.log(response.data)
+            return response.data
+        }).catch(err => {
+            console.log(err)
+        })
+        setMessages(temp_messages.data)
+    }
 
     React.useEffect(() => {
         if (socket) {
             socket.emit('joinRoom', {
                 chatroomId: selectedContact === null ? 1 : selectedContact.detail_current.chatroom_id
-            })
+            });
+            changeMessage()
         }
+        console.log(selectedContact);
+        contentMessage.current.scrollTop = contentMessage.current.scrollHeight
+
         return () => {
             if (socket) {
                 socket.emit('leaveRoom', {
                     chatroomId: selectedContact === null ? 1 : selectedContact.detail_current.chatroom_id
                 })
+                setMessages([])
             }
         }
     }, [selectedContact]);
 
-
-
-    React.useEffect(() => {
-        console.log(selectedContact)
-    }, [selectedContact])
 
 
     // check group or user
