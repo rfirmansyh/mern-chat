@@ -70,12 +70,15 @@ export default function Index() {
     React.useEffect(() => {
         if (socket) {
             socket.on('newMessage', (message) => {
-                setMessages([...messages, message.newMessage]);
+                setMessages((messages) => [...messages, message.newMessage]);
                 // contentMessage.current.scrollTop = contentMessage.current.scrollHeight
+                contentMessage.current.scrollTop = contentMessage.current.scrollHeight
             })
         }
-        contentMessage.current.scrollTop = contentMessage.current.scrollHeight
+    }, [socket]);
 
+    React.useEffect(() => {
+        console.log(messages)
     }, [messages]);
 
     const changeMessage = async () => {
@@ -87,7 +90,8 @@ export default function Index() {
         }).catch(err => {
             console.log(err)
         })
-        setMessages(temp_messages.data)
+        await setMessages(temp_messages.data)
+        contentMessage.current.scrollTop = contentMessage.current.scrollHeight
     }
 
     React.useEffect(() => {
@@ -97,8 +101,6 @@ export default function Index() {
             });
             changeMessage()
         }
-        console.log(selectedContact);
-        contentMessage.current.scrollTop = contentMessage.current.scrollHeight
 
         return () => {
             if (socket) {
@@ -190,7 +192,7 @@ export default function Index() {
                                         <Row 
                                             key={value && value.participant_id} 
                                             onClick={() => {
-                                                setSelectedContact(getContent(value));
+                                                setSelectedContact(contact => getContent(value));
                                             }} 
                                             className="align-items-center py-3 bg-primary border-bottom" 
                                             style={{ cursor: 'pointer' }}>
