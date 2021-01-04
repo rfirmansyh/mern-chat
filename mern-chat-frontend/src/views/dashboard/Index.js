@@ -11,6 +11,7 @@ export default function Index() {
     // chatrooms as contact
     const [rooms, setRooms] = React.useState([]);
     const [messages, setMessages] = React.useState([]);
+    const [lastMessage, setLastMessage] = React.useState('');
     const [selectedRoom, setSelectedRoom] = React.useState(null);
     const [socket, setSocket] = React.useState(null);
     const [userId, setUserId] = React.useState(0);
@@ -56,8 +57,8 @@ export default function Index() {
     }, [])
 
     React.useEffect(() => {
-        let id = parseInt(prompt('Masukan User id'));
-        // let id = 1;
+        // let id = parseInt(prompt('Masukan User id'));
+        let id = 1;
         setUserId(id);
         getrooms(id);
         setupSocket(id);
@@ -76,8 +77,23 @@ export default function Index() {
         }
     }, [socket]);
 
+    const refreshLastMessage = React.useCallback(async function(userId) {
+        /* change '1' later */
+        let participants = await axios.post(url, {
+            user_id: userId,
+        }).then(response => {
+           return response.data.participants.map((val) => val)
+        }).catch(err => {
+            // console.log(err)
+        })
+        setRooms(participants)
+    }, [])
+
     React.useEffect(() => {
-        // console.log(messages)
+        refreshLastMessage(userId)
+        // setSelectedRoom(getContent(selectedRoom));
+        // last_message = getContent(value) && getContent(value).messages.length > 1 ?
+        //                     getContent(value).messages[getContent(value).messages.length - 1].message : ''
     }, [messages]);
 
     React.useEffect(() => {
@@ -103,7 +119,7 @@ export default function Index() {
         if (socket) {
             socket.on('user_typing', (data) => {
                 setUserTyping(data)
-                console.log(userTyping)
+                // console.log(userTyping)
                 contentMessage.current.scrollTop = contentMessage.current.scrollHeight
             })
         }
@@ -124,7 +140,7 @@ export default function Index() {
         setTimeout(() => {
             setUserTyping(null)
         }, 2000);
-        console.log(userTyping);
+        // console.log(userTyping);
     }, [userTyping])
 
     const changeMessage = async () => {
@@ -171,6 +187,7 @@ export default function Index() {
                 message: message,
                 user_id: user_id
             })
+
         }
 
         messageRef.current.value = ""
@@ -213,7 +230,8 @@ export default function Index() {
                             {/* Contact List */}
                             {rooms.map((value, i) => {
                                 const room = getContent(value).room
-                                const last_message = messages[messages.length-1] && messages[messages.length-1].message
+                                const last_message = getContent(value) && getContent(value).messages.length > 0 ?
+                                                        getContent(value).messages[getContent(value).messages.length - 1].message : ''
                                 return (
                                     <Row 
                                         key={value && value.participant_id} 

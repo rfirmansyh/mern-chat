@@ -56,6 +56,18 @@ export default function Index() {
         contentMessage.current.scrollTop = contentMessage.current.scrollHeight
     }, [])
 
+    const refreshLastMessage = React.useCallback(async function(userId) {
+        /* change '1' later */
+        let participants = await axios.post(url, {
+            user_id: userId,
+        }).then(response => {
+           return response.data.participants.map((val) => val)
+        }).catch(err => {
+            // console.log(err)
+        })
+        setRooms(participants)
+    }, [])
+
     React.useEffect(() => {
         // let id = parseInt(prompt('Masukan User id'));
         let id = 1;
@@ -78,9 +90,7 @@ export default function Index() {
     }, [socket]);
 
     React.useEffect(() => {
-        // setSelectedRoom(getContent(selectedRoom));
-        // last_message = getContent(value) && getContent(value).messages.length > 1 ?
-        //                     getContent(value).messages[getContent(value).messages.length - 1].message : ''
+        refreshLastMessage(userId)
     }, [messages]);
 
     React.useEffect(() => {
@@ -198,7 +208,7 @@ export default function Index() {
                         {/* Sidebar */}
                         <Col lg="4" className="bg-light h-100 border-right">
                             {/* Profile */}
-                            <Row className="align-items-center justify-content-between bg-secondary py-3">
+                            <Row className="align-items-center justify-content-between bg-info py-3">
                                 <Col>
                                     <div 
                                         className="bg-light"
@@ -210,6 +220,12 @@ export default function Index() {
                                         <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     </div>
                                 </Col>
+                                <Col xs="auto">
+                                    <Button variant="white" size="sm">Pesan</Button>
+                                </Col>
+                                <Col xs="auto" className="bg-white" style={{ cursor: 'pointer' }}>
+                                    grup
+                                </Col>
                                 <Col xs="auto" className="bg-white" style={{ cursor: 'pointer' }}>
                                     Story
                                 </Col>
@@ -217,7 +233,7 @@ export default function Index() {
                             {/* Contact List */}
                             {rooms.map((value, i) => {
                                 const room = getContent(value).room
-                                const last_message = getContent(value) && getContent(value).messages.length > 1 ?
+                                const last_message = getContent(value) && getContent(value).messages.length > 0 ?
                                                         getContent(value).messages[getContent(value).messages.length - 1].message : ''
                                 return (
                                     <Row 
