@@ -20,6 +20,43 @@ async function getParticpantsByPUid(req, res) {
     })
 }
 
+// GET PARTICIPANT BY PARTICIPANT CHATROOM ID
+async function getAllDetailParticpantsByCUid(req, res) {
+    const chatroom_id = parseInt(req.body.chatroom_id);
+    let participants = await Participant.aggregate([
+        {$match: {chatroom_id: chatroom_id}},
+        {$lookup: {
+            from: 'chatrooms',
+            localField: 'chatroom_id',
+            foreignField: 'chatroom_id',
+            as: 'chatroom_detail'
+        }},
+        {$lookup: {
+            from: 'participants',
+            localField: 'chatroom_id',
+            foreignField: 'chatroom_id',
+            as: 'participants'
+        }},
+        {$lookup: {
+            from: 'users',
+            localField: 'participants.chatroom_id',
+            foreignField: 'chatroom_id',
+            as: 'users'
+        }},
+        {$lookup: {
+            from: 'messages',
+            localField: 'chatroom_id',
+            foreignField: 'chatroom_id',
+            as: 'messages'
+        }},
+        {$project: {participants: 0}}
+    ]);
+    return res.json({
+        req_chatroom_id: chatroom_id,
+        participants
+    });
+}
+
 
 // GET ALL DETAIL DATA BY USER ID
 async function getAllDetailParticipantsByUid(req, res) {
@@ -61,6 +98,7 @@ async function getAllDetailParticipantsByUid(req, res) {
 
 
 module.exports = {
+    getAllDetailParticpantsByCUid,
     getAllDetailParticipantsByUid,
     getParticpantsByPUid,
     store,

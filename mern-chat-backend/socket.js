@@ -32,6 +32,15 @@ exports.socketApp = function(server) {
             }
         })
 
+        socket.on('typing', async ({chatroomId, user_id}) => {
+            const user = await User.findOne({ user_id: user_id });
+            console.log(user.name)
+            io.to(chatroomId).emit('user_typing', {
+                id: user_id,
+                name: user.name
+            })
+        })
+
         // socket.on('chatroomMessage', async ({chatroomId, message}) => {
         //     if (message.trim().length > 0) {
         //         const user = await User.findOne({ user_id: socket.user_id });
