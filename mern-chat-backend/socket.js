@@ -19,10 +19,11 @@ exports.socketApp = function(server) {
         socket.on('chatroomMessage', async ({chatroomId, message, user_id}) => {
             if (message.trim().length > 0) {
                 const user = await User.findOne({ user_id: user_id });
-                const newMessage = new Message({
+                let newMessage = new Message({
                     message: message,
                     chatroom_id: chatroomId,
-                    user_id: user_id
+                    user_id: user_id,
+                    user_name: user.name
                 })
                 await newMessage.save();   
                 io.to(chatroomId).emit('newMessage', {

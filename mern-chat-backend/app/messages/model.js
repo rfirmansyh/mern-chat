@@ -6,6 +6,7 @@ const { model, Schema } = mongoose;
 const messageSchema = new Schema({
     message : String,
     chatroom_id: Number,
+    user_name : String,
     user_id: Number,
 }, { timestamps: true });
 

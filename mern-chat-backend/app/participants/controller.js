@@ -20,44 +20,6 @@ async function getParticpantsByPUid(req, res) {
     })
 }
 
-// GET PARTICIPANT BY PARTICIPANT CHATROOM ID
-async function getAllDetailParticpantsByCUid(req, res) {
-    const chatroom_id = parseInt(req.body.chatroom_id);
-    let participants = await Participant.aggregate([
-        {$match: {chatroom_id: chatroom_id}},
-        {$lookup: {
-            from: 'chatrooms',
-            localField: 'chatroom_id',
-            foreignField: 'chatroom_id',
-            as: 'chatroom_detail'
-        }},
-        {$lookup: {
-            from: 'participants',
-            localField: 'chatroom_id',
-            foreignField: 'chatroom_id',
-            as: 'participants'
-        }},
-        {$lookup: {
-            from: 'users',
-            localField: 'participants.chatroom_id',
-            foreignField: 'chatroom_id',
-            as: 'users'
-        }},
-        {$lookup: {
-            from: 'messages',
-            localField: 'chatroom_id',
-            foreignField: 'chatroom_id',
-            as: 'messages'
-        }},
-        {$project: {participants: 0}}
-    ]);
-    return res.json({
-        req_chatroom_id: chatroom_id,
-        participants
-    });
-}
-
-
 // GET ALL DETAIL DATA BY USER ID
 async function getAllDetailParticipantsByUid(req, res) {
     const user_id = parseInt(req.body.user_id);
@@ -95,11 +57,67 @@ async function getAllDetailParticipantsByUid(req, res) {
     });
 }
 
+// GET USER LIST BY PARTICIPANT USER ID
+async function getUsersParticipantByUid(req, res) {
+    const user_id = parseInt(req.body.user_id);
+    let participants = await Participant.aggregate([
+        {$match: {user_id: user_id}},
+        {$lookup: {
+            from: 'chatrooms',
+            localField: 'chatroom_id',
+            foreignField: 'chatroom_id',
+            as: 'chatroom_detail'
+        }},
+        {$lookup: {
+            from: 'participants',
+            localField: 'chatroom_id',
+            foreignField: 'chatroom_id',
+            as: 'participants'
+        }},
+        {$unwind: {
+            path: '$chatroom_detail',
+        }},
+        {$match: {
+            "chatroom_detail.room_type": "1"
+        }},
+        {$lookup: {
+            from: 'users',
+            localField: 'participants.user_id',
+            foreignField: 'user_id',
+            as: 'users'
+        }},
+        {$group: {
+            _id: '$user_id',
+            users: {
+                $addToSet: '$users'
+            }
+        }},
+        {$unwind: {
+            path: '$users',
+        }},
+        {$unwind: {
+            path: '$users',
+        }},
+        {$match: {
+            'users.user_id': {$ne: user_id}
+        }},
+        {$group: {
+            _id: '$_id',
+            users: {
+              $addToSet: '$users'
+            }
+        }},
+    ]);
+    return res.json({
+        req_user_id: user_id,
+        participants
+    });
+}
 
 
 module.exports = {
-    getAllDetailParticpantsByCUid,
     getAllDetailParticipantsByUid,
+    getUsersParticipantByUid,
     getParticpantsByPUid,
     store,
 }
