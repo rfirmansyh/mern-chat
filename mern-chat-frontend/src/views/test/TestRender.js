@@ -10,7 +10,7 @@ export default function Index() {
 
     // chatrooms as contact
     const [rooms, setRooms] = React.useState([]);
-    const [contacts, setContacts] = React.useState({});
+    const [contacts, setContacts] = React.useState([]);
     const [messages, setMessages] = React.useState([]);
     const [selectedRoom, setSelectedRoom] = React.useState(null);
     const [socket, setSocket] = React.useState(null);
@@ -82,11 +82,11 @@ export default function Index() {
     }, [])
 
     const getContacts = React.useCallback(async function(userId) {
-        let contacts_result = await axios.post(`${config.api_host}/api/participants/getUsersParticipantByUid`, {
+        let contacts_result = await axios.post(`${config.api_host}/api/contacts/getContactsByUserId`, {
             user_id: userId,
         }).then(response => {
             // console.log(response.data.participants.map(v => console.log(v)))
-            return response.data.participants.map((val) => val.users)
+            return response.data.contacts.map((val) => val)
         }).catch(err => {
             // console.log(err)
         })
@@ -179,14 +179,13 @@ export default function Index() {
     // check group or user
     const getContent = (participant) => {
         let content;
-        if (participant.users.length > 2) {
+        if (participant.chatroom_detail[0].room_type === '2') {
             return content = {
                 detail_current: participant,
                 room:  participant.chatroom_detail[0],
                 messages:  participant.messages
             };
         } else {
-            /* change '1' later */
             return content = {
                 detail_current: participant,
                 room: participant.users.filter(function(x) { return x.user_id !== userId })[0],
@@ -266,7 +265,7 @@ export default function Index() {
                                 const room = getContent(value).room
                                 const last_message = getContent(value) && getContent(value).messages.length > 0 ?
                                                         getContent(value).messages[getContent(value).messages.length - 1].message : ''
-                                if (last_message !== '') {
+                                if (last_message !== '' || room.room_type === '2') {
                                     return (
                                         <Row 
                                             key={value && value.participant_id} 
@@ -316,7 +315,7 @@ export default function Index() {
                                         { selectedRoom && selectedRoom.room.name ? selectedRoom.room.name : '' }
                                     </h5>
                                     <div>
-                                        { userTyping !== null && userTyping.id !== userId ?
+                                        {/* userTyping !== null && userTyping.id !== userId ?
                                             `${userTyping.name} is Typing` :
                                             selectedRoom && selectedRoom.detail_current.users.map((v, i) => {
                                                 if (i > 2) {
@@ -324,7 +323,11 @@ export default function Index() {
                                                 } else {
                                                     return v.user_id !== userId ? `${v.name}, ` : ''
                                                 }
-                                            }).join('')+'You' 
+                                            }).join('')+'You'  */}
+                                        { 
+                                            (() => {
+                                                
+                                            })
                                         } 
                                     </div>
                                 </Col>
@@ -382,30 +385,24 @@ export default function Index() {
             {/* modal */}
             <Modal show={isNewMessage} onHide={() => setIsNewMessage(false)}>
                 <Modal.Header closeButton>
-                <Modal.Title>Modal heading</Modal.Title>
+                    <Modal.Title>Modal heading</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
                     <Form.Control type="text" className="mb-3" placeholder="Cari Kontak" />
                     <ListGroup defaultActiveKey="#link1">
-                        { contacts !== null && contacts[0] !== undefined ? 
-                        // console.log(contacts[0].map(v => consol))
-                        contacts[0].map(v => {
-                            console.log(v)
+                        {contacts.length !== 0 ? contacts.map((contact) => {
                             return (
-                                <ListGroup.Item action onClick={() => alert('p')}>
-                                    {v.name}
+                                <ListGroup.Item action>
+                                    {contact.name}
                                 </ListGroup.Item>
                             )
-                        })
-                        : ''}
+                        }) : ''
+                        }
                     </ListGroup>
                 </Modal.Body>
                 <Modal.Footer>
                 <Button variant="secondary" onClick={() => setIsNewMessage(false)}>
-                    Close
-                </Button>
-                <Button variant="primary">
-                    Save Changes
+                    Batal
                 </Button>
                 </Modal.Footer>
             </Modal>

@@ -114,10 +114,21 @@ async function getUsersParticipantByUid(req, res) {
     });
 }
 
+async function deleteAll(req, res) {
+    Participant.deleteMany({}, function(err) {
+        if(err) console.log(err);
+        return res.json({
+            data: 'Participants deleted'
+        })
+    });
+    
+}
+
 
 module.exports = {
     getAllDetailParticipantsByUid,
     getUsersParticipantByUid,
     getParticpantsByPUid,
     store,
+    deleteAll
 }

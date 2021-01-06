@@ -25,8 +25,19 @@ async function store(req, res) {
     });
 }
 
+async function deleteAll(req, res) {
+    Message.deleteMany({}, function(err) {
+        if(err) console.log(err);
+        return res.json({
+            data: 'Message deleted'
+        })
+    });
+    
+}
+
 module.exports = {
     getMessagesByChatroomId,
     getAllMessage,
-    store
+    store,
+    deleteAll
 }

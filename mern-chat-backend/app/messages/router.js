@@ -4,6 +4,7 @@ const multer = require('multer');
 const controller = require('./controller');
 
 router.get('/', controller.getAllMessage);
+router.get('/deleteAll', controller.deleteAll);
 router.post('/chatroomId', multer().none(), controller.getMessagesByChatroomId);
 router.post('/store', multer().none(), controller.store);
 

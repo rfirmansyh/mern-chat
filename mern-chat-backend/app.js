@@ -13,6 +13,7 @@ const authRouter = require('./app/auth/router');
 const messageRouter = require('./app/messages/router');
 const participantRouter = require('./app/participants/router');
 const chatroomRouter = require('./app/chatrooms/router');
+const contactRouter = require('./app/contacts/router');
 const { socketApp } = require('./socket');
 // const { socketApp } = require('./socket');
 
@@ -45,6 +46,7 @@ app.use('/auth', authRouter);
 app.use('/api/messages', messageRouter);
 app.use('/api/chatrooms', chatroomRouter);
 app.use('/api/participants', participantRouter);
+app.use('/api/contacts', contactRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {

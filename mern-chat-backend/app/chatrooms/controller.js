@@ -19,7 +19,18 @@ async function getChatroomsByPCid(req, res) {
     })
 }
 
+async function deleteAll(req, res) {
+    Chatroom.deleteMany({}, function(err) {
+        if(err) console.log(err);
+        return res.json({
+            data: 'Chatroom deleted'
+        })
+    });
+    
+}
+
 module.exports = {
     store,
-    getChatroomsByPCid
+    getChatroomsByPCid,
+    deleteAll
 }
