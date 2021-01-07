@@ -38,7 +38,6 @@ export default function Index() {
         } else {
             console.log('waiiting data')
         }
-        console.log(contact)
         return contact
     }
     
@@ -135,6 +134,7 @@ export default function Index() {
     }, [socket]);
 
     React.useEffect(() => {
+        console.log('message refreshed');
         if (socket) {
             socket.on('newOnContacMessage', (message) => {
                 refreshLastMessage(userId)
