@@ -8,5 +8,6 @@ router.get('/deleteAll', controller.deleteAll);
 router.post('/getParticpantsByPUid', multer().none(), controller.getParticpantsByPUid);
 router.post('/getUsersParticipantByUid', multer().none(), controller.getUsersParticipantByUid);
 router.post('/getAllDetailParticipantsByUid', multer().none(), controller.getAllDetailParticipantsByUid);
+router.post('/getAllDetailParticipantByUidAndContactId', multer().none(), controller.getAllDetailParticipantByUidAndContactId);
 
 module.exports = router;

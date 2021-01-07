@@ -10,9 +10,9 @@ export default function Index() {
 
     // chatrooms as contact
     const [rooms, setRooms] = React.useState([]);
+    const [selectedRoom, setSelectedRoom] = React.useState(null);
     const [contacts, setContacts] = React.useState([]);
     const [messages, setMessages] = React.useState([]);
-    const [selectedRoom, setSelectedRoom] = React.useState(null);
     const [socket, setSocket] = React.useState(null);
     const [userId, setUserId] = React.useState(0);
 
@@ -26,6 +26,21 @@ export default function Index() {
 
     const url = `${config.api_host}/api/participants/getAllDetailParticipantsByUid`;
 
+    const getIfInContact = (contact_id) => {
+        let contact = null;
+        if (contacts.length != 0) {
+            contacts.map((v) => {
+                if (v.user_saved_id === contact_id) {
+                    contact = v;
+                    return true
+                }
+            })
+        } else {
+            console.log('waiiting data')
+        }
+        console.log(contact)
+        return contact
+    }
     
     const setupSocket = (userId) =>{
         var newSocket = io(`${config.api_host}`, {
@@ -38,7 +53,7 @@ export default function Index() {
             alert('Connected !');
         })
         newSocket.emit('joinRoom', {
-            chatroomId: selectedRoom === null ? 1 : selectedRoom.detail_current.chatroom_id
+            chatroomId: selectedRoom && selectedRoom.detail_current.chatroom_id
         })
 
         setSocket(newSocket);
@@ -96,8 +111,8 @@ export default function Index() {
 
     // setup effect
     React.useEffect(() => {
-        // let id = parseInt(prompt('Masukan User id'));
-        let id = 1;
+        let id = parseInt(prompt('Masukan User id'));
+        // let id = 1;
         setUserId(id);
         setupSocket(id);
         getrooms(id);
@@ -114,6 +129,15 @@ export default function Index() {
             socket.on('newMessage', (message) => {
                 let message_result = { ...message.newMessage, "sender_name" : message.sender_name }
                 setMessages((messages) => [...messages, message_result]);
+                contentMessage.current.scrollTop = contentMessage.current.scrollHeight
+            })
+        }
+    }, [socket]);
+
+    React.useEffect(() => {
+        if (socket) {
+            socket.on('newOnContacMessage', (message) => {
+                refreshLastMessage(userId)
                 contentMessage.current.scrollTop = contentMessage.current.scrollHeight
             })
         }
@@ -175,23 +199,23 @@ export default function Index() {
         contentMessage.current.scrollTop = contentMessage.current.scrollHeight
     }
 
-
     // check group or user
     const getContent = (participant) => {
         let content;
         if (participant.chatroom_detail[0].room_type === '2') {
             return content = {
                 detail_current: participant,
-                room:  participant.chatroom_detail[0],
-                messages:  participant.messages
+                room: participant.chatroom_detail[0],
+                messages: participant.messages
             };
         } else {
             return content = {
                 detail_current: participant,
                 room: participant.users.filter(function(x) { return x.user_id !== userId })[0],
-                messages: participant.messages
+                messages: participant.messages,
             };
         }
+        
     }
 
     const sendMessage = () => {
@@ -213,9 +237,27 @@ export default function Index() {
 
     const newMessage = () => {
         setIsNewMessage(true)
-        console.log(contacts);
+        // console.log(contacts);
+    }
+
+    const selectNewMessage = async (chatroom_id, user_owned_id, user_saved_id) => {
+        let participant_result = await axios.post(`${config.api_host}/api/participants/getAllDetailParticipantByUidAndContactId`, {
+            chatroom_id: chatroom_id,
+            user_owned_id: user_owned_id,
+            user_saved_id: user_saved_id,
+        }).then(response => {
+            // console.log(response.data.participants.map(v => console.log(v)))
+            return response.data.participant
+        }).catch(err => {
+            // console.log(err)
+        })
+        
+        setSelectedRoom(() => getContent(participant_result[0]));
     }
     
+    React.useEffect(() => {
+        console.log(selectedRoom)
+    }, [selectedRoom])
 
 
     if (socket === null && userId === null) {
@@ -261,11 +303,12 @@ export default function Index() {
                             </Row>
                             {/* Contact List */}
                             {rooms.map((value, i) => {
-                                // const val_content = getContent(value)
+                                const val_content = getContent(value)
                                 const room = getContent(value).room
                                 const last_message = getContent(value) && getContent(value).messages.length > 0 ?
                                                         getContent(value).messages[getContent(value).messages.length - 1].message : ''
-                                if (last_message !== '' || room.room_type === '2') {
+
+                                if (last_message !== '' && val_content.detail_current.chatroom_detail[0].room_type === '1') {
                                     return (
                                         <Row 
                                             key={value && value.participant_id} 
@@ -286,12 +329,39 @@ export default function Index() {
                                                     </div>  
                                                 </Col>
                                                 <Col>
-                                                    <h5 className="mb-0">{ room ? room.name : '' }</h5>
+                                                    <h5 className="mb-0">
+                                                        { getIfInContact(room.user_id) !== null ? getIfInContact(room.user_id).name : room.name }
+                                                    </h5>
                                                     <span>{ last_message }</span>
                                                 </Col>
                                         </Row>
                                     )
-                                }
+                                } 
+                                // else {
+                                //     <Row 
+                                //         key={value && value.participant_id} 
+                                //         onClick={() => {
+                                //             setSelectedRoom(() => getContent(value));
+                                //         }} 
+                                //         className="align-items-center py-3 bg-primary border-bottom" 
+                                //         style={{ cursor: 'pointer' }}>
+                                //             <Col xs="auto">
+                                //                 <div 
+                                //                     className="bg-light"
+                                //                     style={{ 
+                                //                         width: '60px', 
+                                //                         height: '60px', 
+                                //                         borderRadius: '50%', 
+                                //                         overflow: 'hidden', } }>
+                                //                     <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                //                 </div>  
+                                //             </Col>
+                                //             <Col>
+                                //                 <h5 className="mb-0">{ room ? room.name : '' }</h5>
+                                //                 <span>{ last_message }</span>
+                                //             </Col>
+                                //     </Row>
+                                // }
                             })}
                         </Col>
                         
@@ -312,7 +382,17 @@ export default function Index() {
                                 </Col>
                                 <Col>
                                     <h5 className="mb-0">
-                                        { selectedRoom && selectedRoom.room.name ? selectedRoom.room.name : '' }
+                                        { 
+                                            (() => {
+                                                if (selectedRoom && selectedRoom.detail_current.chatroom_detail[0].room_type === '1') {
+                                                    return getIfInContact(selectedRoom.room.user_id) !== null ? 
+                                                            getIfInContact(selectedRoom.room.user_id).name : 
+                                                            selectedRoom.room.name
+                                                } else {
+                                                    return selectedRoom && selectedRoom.room.name
+                                                }
+                                            })()
+                                        }
                                     </h5>
                                     <div>
                                         {/* userTyping !== null && userTyping.id !== userId ?
@@ -390,10 +470,11 @@ export default function Index() {
                 <Modal.Body>
                     <Form.Control type="text" className="mb-3" placeholder="Cari Kontak" />
                     <ListGroup defaultActiveKey="#link1">
-                        {contacts.length !== 0 ? contacts.map((contact) => {
+                        {contacts !== null ? contacts.map((contact) => {
                             return (
-                                <ListGroup.Item action>
-                                    {contact.name}
+                                <ListGroup.Item action 
+                                    onClick={() => selectNewMessage(contact.chatroom_id, contact.user_owned_id, contact.user_saved_id)}>
+                                        {contact.name}
                                 </ListGroup.Item>
                             )
                         }) : ''

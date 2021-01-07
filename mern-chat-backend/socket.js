@@ -29,13 +29,15 @@ exports.socketApp = function(server) {
                 io.to(chatroomId).emit('newMessage', {
                     newMessage
                 })
+                socket.broadcast.emit('newOnContacMessage', {
+                    newMessage
+                })
                 console.log(newMessage);
             }
         })
 
         socket.on('typing', async ({chatroomId, user_id}) => {
             const user = await User.findOne({ user_id: user_id });
-            console.log(user.name)
             io.to(chatroomId).emit('user_typing', {
                 id: user_id,
                 name: user.name

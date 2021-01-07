@@ -7,6 +7,7 @@ const contactSchema = new Schema({
     name: String,
     user_owned_id : Number,
     user_saved_id: Number,
+    chatroom_id: Number,
 }, { timestamps: true });
 
 // autoincrement column
