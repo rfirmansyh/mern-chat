@@ -55,6 +55,7 @@ async function getAllDetailParticipantsByUid(req, res) {
             foreignField: 'chatroom_id',
             as: 'messages'
         }},
+        {$sort: {'messages.createdAt': -1}},
         {$project: {participants: 0}}
     ]);
     return res.json({

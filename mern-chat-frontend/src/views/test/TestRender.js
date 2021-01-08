@@ -3,7 +3,7 @@ import axios from 'axios'
 import io from 'socket.io-client'
 import { config } from 'config'
 import { Col, Container, Row, Button, Form, Modal, ListGroup } from 'react-bootstrap'
-import img_user from 'assets/img/users/1.png'
+import img_user from 'assets/img/users/default-user.png'
 
 export default function Index() {
     // jika participant lebih dari 1 (bukan group) tampilkan nama user
@@ -36,7 +36,7 @@ export default function Index() {
                 }
             })
         } else {
-            console.log('waiiting data')
+            // console.log('waiiting data')
         }
         return contact
     }
@@ -83,14 +83,18 @@ export default function Index() {
         contentMessage.current.scrollTop = contentMessage.current.scrollHeight
     }, [])
 
-    const refreshLastMessage = React.useCallback(async function(userId) {
+    const refreshLastMessage = React.useCallback(async function(userId, message) {
         /* change '1' later */
+        let mess = message.newMessage;
         let participants = await axios.post(url, {
             user_id: userId,
         }).then(response => {
            return response.data.participants.map((val) => val)
         }).catch(err => {
             // console.log(err)
+        })
+        participants.sort((x, y) => {
+            return x.chatroom_id == mess.chatroom_id ? -1 : y.chatroom_id === mess.chatroom_id ? 1 : 0;
         })
         setRooms(participants)
     }, [])
@@ -99,11 +103,8 @@ export default function Index() {
         let contacts_result = await axios.post(`${config.api_host}/api/contacts/getContactsByUserId`, {
             user_id: userId,
         }).then(response => {
-            // console.log(response.data.participants.map(v => console.log(v)))
             return response.data.contacts.map((val) => val)
-        }).catch(err => {
-            // console.log(err)
-        })
+        }).catch(err => {})
         
         setContacts(contacts_result)
     })
@@ -118,14 +119,14 @@ export default function Index() {
         getContacts(id);
 
         return () => {
-            // console.log('done')
         }
     }, [])
 
     // new message effect
     React.useEffect(() => {
         if (socket) {
-            socket.on('newMessage', (message) => {
+            socket.on('newMessage', async (message) => {
+                await refreshLastMessage(userId, message)
                 let message_result = { ...message.newMessage, "sender_name" : message.sender_name }
                 setMessages((messages) => [...messages, message_result]);
                 contentMessage.current.scrollTop = contentMessage.current.scrollHeight
@@ -133,20 +134,25 @@ export default function Index() {
         }
     }, [socket]);
 
+    // get broadcast last message
     React.useEffect(() => {
         console.log('message refreshed');
         if (socket) {
-            socket.on('newOnContacMessage', (message) => {
-                refreshLastMessage(userId)
+            socket.on('newOnContacMessage', async (message) => {
+                await refreshLastMessage(userId, message)
                 contentMessage.current.scrollTop = contentMessage.current.scrollHeight
             })
         }
     }, [socket]);
 
     // get lastmessage on contact list
-    React.useEffect(() => {
-        refreshLastMessage(userId)
-    }, [messages]);
+    // React.useEffect(() => {
+    //     if (socket) {
+    //         socket.on('newMessage', async (message) => {
+                
+    //         })
+    //     }
+    // }, [messages]);
 
     // change room
     React.useEffect(() => {
@@ -172,8 +178,6 @@ export default function Index() {
         if (socket) {
             socket.on('user_typing', (data) => {
                 setUserTyping(data)
-                // console.log(userTyping)
-                contentMessage.current.scrollTop = contentMessage.current.scrollHeight
             })
         }
     }, [socket])
@@ -253,12 +257,8 @@ export default function Index() {
         })
         
         setSelectedRoom(() => getContent(participant_result[0]));
+        setIsNewMessage(() => false);
     }
-    
-    React.useEffect(() => {
-        console.log(selectedRoom)
-    }, [selectedRoom])
-
 
     if (socket === null && userId === null) {
         return (
@@ -298,7 +298,7 @@ export default function Index() {
                                     <Button variant="outline-light" size="sm">Grup Baru</Button>
                                 </Col>
                                 <Col xs="auto" className='pl-0'>
-                                    <Button variant="outline-light" size="sm">Story</Button>
+                                    <Button variant="outline-light" size="sm">Menu</Button>
                                 </Col>
                             </Row>
                             {/* Contact List */}
@@ -315,7 +315,7 @@ export default function Index() {
                                             onClick={() => {
                                                 setSelectedRoom(() => getContent(value));
                                             }} 
-                                            className="align-items-center py-3 bg-primary border-bottom" 
+                                            className="align-items-center py-3 bg-secondary border-bottom" 
                                             style={{ cursor: 'pointer' }}>
                                                 <Col xs="auto">
                                                     <div 
@@ -328,7 +328,7 @@ export default function Index() {
                                                         <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     </div>  
                                                 </Col>
-                                                <Col>
+                                                <Col className="text-white">
                                                     <h5 className="mb-0">
                                                         { getIfInContact(room.user_id) !== null ? getIfInContact(room.user_id).name : room.name }
                                                     </h5>
@@ -337,38 +337,13 @@ export default function Index() {
                                         </Row>
                                     )
                                 } 
-                                // else {
-                                //     <Row 
-                                //         key={value && value.participant_id} 
-                                //         onClick={() => {
-                                //             setSelectedRoom(() => getContent(value));
-                                //         }} 
-                                //         className="align-items-center py-3 bg-primary border-bottom" 
-                                //         style={{ cursor: 'pointer' }}>
-                                //             <Col xs="auto">
-                                //                 <div 
-                                //                     className="bg-light"
-                                //                     style={{ 
-                                //                         width: '60px', 
-                                //                         height: '60px', 
-                                //                         borderRadius: '50%', 
-                                //                         overflow: 'hidden', } }>
-                                //                     <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                //                 </div>  
-                                //             </Col>
-                                //             <Col>
-                                //                 <h5 className="mb-0">{ room ? room.name : '' }</h5>
-                                //                 <span>{ last_message }</span>
-                                //             </Col>
-                                //     </Row>
-                                // }
                             })}
                         </Col>
                         
                         {/* Content Message */}
                         <Col className="h-100" style={{ overflow: 'hidden'}} >
                             {/* Row Profile group/other */}
-                            <Row className="align-items-center justify-content-between bg-success py-3">
+                            <Row className="align-items-center justify-content-between bg-dark py-3">
                                 <Col xs="auto">
                                     <div 
                                         className="bg-light"
@@ -381,7 +356,7 @@ export default function Index() {
                                     </div>
                                 </Col>
                                 <Col>
-                                    <h5 className="mb-0">
+                                    <h5 className="text-white mb-0">
                                         { 
                                             (() => {
                                                 if (selectedRoom && selectedRoom.detail_current.chatroom_detail[0].room_type === '1') {
@@ -411,8 +386,8 @@ export default function Index() {
                                         } 
                                     </div>
                                 </Col>
-                                <Col xs="auto" className="bg-white" style={{ cursor: 'pointer' }}>
-                                    option
+                                <Col xs="auto" className="">
+                                    <Button variant="outline-light" size="sm">Menu</Button>
                                 </Col>
                             </Row>
 
@@ -462,7 +437,7 @@ export default function Index() {
                 </Container>
             </div>
 
-            {/* modal */}
+            {/* Modal New Message */}
             <Modal show={isNewMessage} onHide={() => setIsNewMessage(false)}>
                 <Modal.Header closeButton>
                     <Modal.Title>Modal heading</Modal.Title>
@@ -487,6 +462,9 @@ export default function Index() {
                 </Button>
                 </Modal.Footer>
             </Modal>
+            {/* End of Modal New Message */}
+
+            
         </>
     )
 }

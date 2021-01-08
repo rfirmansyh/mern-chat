@@ -3,16 +3,16 @@ import axios from 'axios'
 import io from 'socket.io-client'
 import { config } from 'config'
 import { Col, Container, Row, Button, Form, Modal, ListGroup } from 'react-bootstrap'
-import img_user from 'assets/img/users/1.png'
+import img_user from 'assets/img/users/default-user.png'
 
 export default function Index() {
     // jika participant lebih dari 1 (bukan group) tampilkan nama user
 
     // chatrooms as contact
     const [rooms, setRooms] = React.useState([]);
+    const [selectedRoom, setSelectedRoom] = React.useState(null);
     const [contacts, setContacts] = React.useState([]);
     const [messages, setMessages] = React.useState([]);
-    const [selectedRoom, setSelectedRoom] = React.useState(null);
     const [socket, setSocket] = React.useState(null);
     const [userId, setUserId] = React.useState(0);
 
@@ -26,6 +26,20 @@ export default function Index() {
 
     const url = `${config.api_host}/api/participants/getAllDetailParticipantsByUid`;
 
+    const getIfInContact = (contact_id) => {
+        let contact = null;
+        if (contacts.length != 0) {
+            contacts.map((v) => {
+                if (v.user_saved_id === contact_id) {
+                    contact = v;
+                    return true
+                }
+            })
+        } else {
+            // console.log('waiiting data')
+        }
+        return contact
+    }
     
     const setupSocket = (userId) =>{
         var newSocket = io(`${config.api_host}`, {
@@ -38,7 +52,7 @@ export default function Index() {
             alert('Connected !');
         })
         newSocket.emit('joinRoom', {
-            chatroomId: selectedRoom === null ? 1 : selectedRoom.detail_current.chatroom_id
+            chatroomId: selectedRoom && selectedRoom.detail_current.chatroom_id
         })
 
         setSocket(newSocket);
@@ -69,14 +83,18 @@ export default function Index() {
         contentMessage.current.scrollTop = contentMessage.current.scrollHeight
     }, [])
 
-    const refreshLastMessage = React.useCallback(async function(userId) {
+    const refreshLastMessage = React.useCallback(async function(userId, message) {
         /* change '1' later */
+        let mess = message.newMessage;
         let participants = await axios.post(url, {
             user_id: userId,
         }).then(response => {
            return response.data.participants.map((val) => val)
         }).catch(err => {
             // console.log(err)
+        })
+        participants.sort((x, y) => {
+            return x.chatroom_id == mess.chatroom_id ? -1 : y.chatroom_id === mess.chatroom_id ? 1 : 0;
         })
         setRooms(participants)
     }, [])
@@ -85,33 +103,30 @@ export default function Index() {
         let contacts_result = await axios.post(`${config.api_host}/api/contacts/getContactsByUserId`, {
             user_id: userId,
         }).then(response => {
-            // console.log(response.data.participants.map(v => console.log(v)))
             return response.data.contacts.map((val) => val)
-        }).catch(err => {
-            // console.log(err)
-        })
+        }).catch(err => {})
         
         setContacts(contacts_result)
     })
 
     // setup effect
     React.useEffect(() => {
-        // let id = parseInt(prompt('Masukan User id'));
-        let id = 1;
+        let id = parseInt(prompt('Masukan User id'));
+        // let id = 1;
         setUserId(id);
         setupSocket(id);
         getrooms(id);
         getContacts(id);
 
         return () => {
-            // console.log('done')
         }
     }, [])
 
     // new message effect
     React.useEffect(() => {
         if (socket) {
-            socket.on('newMessage', (message) => {
+            socket.on('newMessage', async (message) => {
+                await refreshLastMessage(userId, message)
                 let message_result = { ...message.newMessage, "sender_name" : message.sender_name }
                 setMessages((messages) => [...messages, message_result]);
                 contentMessage.current.scrollTop = contentMessage.current.scrollHeight
@@ -119,10 +134,25 @@ export default function Index() {
         }
     }, [socket]);
 
-    // get lastmessage on contact list
+    // get broadcast last message
     React.useEffect(() => {
-        refreshLastMessage(userId)
-    }, [messages]);
+        console.log('message refreshed');
+        if (socket) {
+            socket.on('newOnContacMessage', async (message) => {
+                await refreshLastMessage(userId, message)
+                contentMessage.current.scrollTop = contentMessage.current.scrollHeight
+            })
+        }
+    }, [socket]);
+
+    // get lastmessage on contact list
+    // React.useEffect(() => {
+    //     if (socket) {
+    //         socket.on('newMessage', async (message) => {
+                
+    //         })
+    //     }
+    // }, [messages]);
 
     // change room
     React.useEffect(() => {
@@ -148,8 +178,6 @@ export default function Index() {
         if (socket) {
             socket.on('user_typing', (data) => {
                 setUserTyping(data)
-                // console.log(userTyping)
-                contentMessage.current.scrollTop = contentMessage.current.scrollHeight
             })
         }
     }, [socket])
@@ -175,23 +203,23 @@ export default function Index() {
         contentMessage.current.scrollTop = contentMessage.current.scrollHeight
     }
 
-
     // check group or user
     const getContent = (participant) => {
         let content;
         if (participant.chatroom_detail[0].room_type === '2') {
             return content = {
                 detail_current: participant,
-                room:  participant.chatroom_detail[0],
-                messages:  participant.messages
+                room: participant.chatroom_detail[0],
+                messages: participant.messages
             };
         } else {
             return content = {
                 detail_current: participant,
                 room: participant.users.filter(function(x) { return x.user_id !== userId })[0],
-                messages: participant.messages
+                messages: participant.messages,
             };
         }
+        
     }
 
     const sendMessage = () => {
@@ -213,10 +241,24 @@ export default function Index() {
 
     const newMessage = () => {
         setIsNewMessage(true)
-        console.log(contacts);
+        // console.log(contacts);
     }
-    
 
+    const selectNewMessage = async (chatroom_id, user_owned_id, user_saved_id) => {
+        let participant_result = await axios.post(`${config.api_host}/api/participants/getAllDetailParticipantByUidAndContactId`, {
+            chatroom_id: chatroom_id,
+            user_owned_id: user_owned_id,
+            user_saved_id: user_saved_id,
+        }).then(response => {
+            // console.log(response.data.participants.map(v => console.log(v)))
+            return response.data.participant
+        }).catch(err => {
+            // console.log(err)
+        })
+        
+        setSelectedRoom(() => getContent(participant_result[0]));
+        setIsNewMessage(() => false);
+    }
 
     if (socket === null && userId === null) {
         return (
@@ -256,23 +298,24 @@ export default function Index() {
                                     <Button variant="outline-light" size="sm">Grup Baru</Button>
                                 </Col>
                                 <Col xs="auto" className='pl-0'>
-                                    <Button variant="outline-light" size="sm">Story</Button>
+                                    <Button variant="outline-light" size="sm">Menu</Button>
                                 </Col>
                             </Row>
                             {/* Contact List */}
                             {rooms.map((value, i) => {
-                                // const val_content = getContent(value)
+                                const val_content = getContent(value)
                                 const room = getContent(value).room
                                 const last_message = getContent(value) && getContent(value).messages.length > 0 ?
                                                         getContent(value).messages[getContent(value).messages.length - 1].message : ''
-                                if (last_message !== '' || room.room_type === '2') {
+
+                                if (last_message !== '' && val_content.detail_current.chatroom_detail[0].room_type === '1') {
                                     return (
                                         <Row 
                                             key={value && value.participant_id} 
                                             onClick={() => {
                                                 setSelectedRoom(() => getContent(value));
                                             }} 
-                                            className="align-items-center py-3 bg-primary border-bottom" 
+                                            className="align-items-center py-3 bg-secondary border-bottom" 
                                             style={{ cursor: 'pointer' }}>
                                                 <Col xs="auto">
                                                     <div 
@@ -285,20 +328,22 @@ export default function Index() {
                                                         <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     </div>  
                                                 </Col>
-                                                <Col>
-                                                    <h5 className="mb-0">{ room ? room.name : '' }</h5>
+                                                <Col className="text-white">
+                                                    <h5 className="mb-0">
+                                                        { getIfInContact(room.user_id) !== null ? getIfInContact(room.user_id).name : room.name }
+                                                    </h5>
                                                     <span>{ last_message }</span>
                                                 </Col>
                                         </Row>
                                     )
-                                }
+                                } 
                             })}
                         </Col>
                         
                         {/* Content Message */}
                         <Col className="h-100" style={{ overflow: 'hidden'}} >
                             {/* Row Profile group/other */}
-                            <Row className="align-items-center justify-content-between bg-success py-3">
+                            <Row className="align-items-center justify-content-between bg-dark py-3">
                                 <Col xs="auto">
                                     <div 
                                         className="bg-light"
@@ -311,8 +356,18 @@ export default function Index() {
                                     </div>
                                 </Col>
                                 <Col>
-                                    <h5 className="mb-0">
-                                        { selectedRoom && selectedRoom.room.name ? selectedRoom.room.name : '' }
+                                    <h5 className="text-white mb-0">
+                                        { 
+                                            (() => {
+                                                if (selectedRoom && selectedRoom.detail_current.chatroom_detail[0].room_type === '1') {
+                                                    return getIfInContact(selectedRoom.room.user_id) !== null ? 
+                                                            getIfInContact(selectedRoom.room.user_id).name : 
+                                                            selectedRoom.room.name
+                                                } else {
+                                                    return selectedRoom && selectedRoom.room.name
+                                                }
+                                            })()
+                                        }
                                     </h5>
                                     <div>
                                         {/* userTyping !== null && userTyping.id !== userId ?
@@ -331,8 +386,8 @@ export default function Index() {
                                         } 
                                     </div>
                                 </Col>
-                                <Col xs="auto" className="bg-white" style={{ cursor: 'pointer' }}>
-                                    option
+                                <Col xs="auto" className="">
+                                    <Button variant="outline-light" size="sm">Menu</Button>
                                 </Col>
                             </Row>
 
@@ -382,7 +437,7 @@ export default function Index() {
                 </Container>
             </div>
 
-            {/* modal */}
+            {/* Modal New Message */}
             <Modal show={isNewMessage} onHide={() => setIsNewMessage(false)}>
                 <Modal.Header closeButton>
                     <Modal.Title>Modal heading</Modal.Title>
@@ -390,10 +445,11 @@ export default function Index() {
                 <Modal.Body>
                     <Form.Control type="text" className="mb-3" placeholder="Cari Kontak" />
                     <ListGroup defaultActiveKey="#link1">
-                        {contacts.length !== 0 ? contacts.map((contact) => {
+                        {contacts !== null ? contacts.map((contact) => {
                             return (
-                                <ListGroup.Item action>
-                                    {contact.name}
+                                <ListGroup.Item action 
+                                    onClick={() => selectNewMessage(contact.chatroom_id, contact.user_owned_id, contact.user_saved_id)}>
+                                        {contact.name}
                                 </ListGroup.Item>
                             )
                         }) : ''
@@ -406,6 +462,9 @@ export default function Index() {
                 </Button>
                 </Modal.Footer>
             </Modal>
+            {/* End of Modal New Message */}
+
+            
         </>
     )
 }
