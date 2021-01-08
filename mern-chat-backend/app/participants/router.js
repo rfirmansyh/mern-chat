@@ -9,5 +9,6 @@ router.post('/getParticpantsByPUid', multer().none(), controller.getParticpantsB
 router.post('/getUsersParticipantByUid', multer().none(), controller.getUsersParticipantByUid);
 router.post('/getAllDetailParticipantsByUid', multer().none(), controller.getAllDetailParticipantsByUid);
 router.post('/getAllDetailParticipantByUidAndContactId', multer().none(), controller.getAllDetailParticipantByUidAndContactId);
+router.post('/updateValueUnreadMessageByChatroomIdUserId', multer().none(), controller.updateValueUnreadMessageByChatroomIdUserId);
 
 module.exports = router;

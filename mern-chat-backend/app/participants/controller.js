@@ -10,6 +10,22 @@ async function store(req, res) {
     });
 }
 
+async function updateValueUnreadMessageByChatroomIdUserId(req, res) {
+    const chatroom_id = parseInt(req.body.chatroom_id);
+    const user_id = req.body.user_id.map(v => parseInt(v));
+    const value = parseInt(req.body.value);
+    await Participant.updateMany(
+        { $and: [{chatroom_id: chatroom_id}, {user_id: { $in: user_id }}] }, 
+        { $set: { unread_message: value }}
+    );
+    let updateResult = await Participant.find({
+        $and: [{chatroom_id: chatroom_id}, {user_id: { $in: user_id }}]
+    });
+    return res.json({
+        updateResult
+    })
+}
+
 // GET PARTICIPANT BY PARTICIPANT USER ID
 async function getParticpantsByPUid(req, res) {
     const user_id = parseInt(req.body.user_id);
@@ -208,6 +224,7 @@ async function deleteAll(req, res) {
 
 
 module.exports = {
+    updateValueUnreadMessageByChatroomIdUserId,
     getAllDetailParticipantByUidAndContactId,
     getAllDetailParticipantsByUid,
     getUsersParticipantByUid,

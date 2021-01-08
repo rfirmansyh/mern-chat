@@ -5,7 +5,8 @@ const { model, Schema } = mongoose;
 
 const participantSchema = new Schema({
     chatroom_id : Number,
-    user_id: Number
+    user_id: Number,
+    unread_message: { type: Number, default: 0}
 }, { timestamps: true });
 
 // autoincrement column
