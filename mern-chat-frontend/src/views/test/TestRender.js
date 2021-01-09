@@ -2,7 +2,7 @@ import React from 'react'
 import axios from 'axios'
 import io from 'socket.io-client'
 import { config } from 'config'
-import { Col, Container, Row, Button, Form, Modal, ListGroup } from 'react-bootstrap'
+import { Col, Container, Row, Button, Form, Modal, ListGroup, Badge } from 'react-bootstrap'
 import img_user from 'assets/img/users/default-user.png'
 
 export default function Index() {
@@ -85,7 +85,7 @@ export default function Index() {
 
     const refreshLastMessage = React.useCallback(async function(userId, message) {
         /* change '1' later */
-        let mess = message.newMessage;
+        let mess =  message.newMessage;
         let participants = await axios.post(url, {
             user_id: userId,
         }).then(response => {
@@ -112,7 +112,7 @@ export default function Index() {
     // setup effect
     React.useEffect(() => {
         let id = parseInt(prompt('Masukan User id'));
-        // let id = 1;
+        // let id = 1;3
         setUserId(id);
         setupSocket(id);
         getrooms(id);
@@ -141,24 +141,15 @@ export default function Index() {
             socket.on('newOnContacMessage', async (message) => {
                 await refreshLastMessage(userId, message)
                 contentMessage.current.scrollTop = contentMessage.current.scrollHeight
-            })
+            });
         }
     }, [socket]);
-
-    // get lastmessage on contact list
-    // React.useEffect(() => {
-    //     if (socket) {
-    //         socket.on('newMessage', async (message) => {
-                
-    //         })
-    //     }
-    // }, [messages]);
 
     // change room
     React.useEffect(() => {
         if (socket) {
             socket.emit('joinRoom', {
-                chatroomId: selectedRoom === null ? 1 : selectedRoom.detail_current.chatroom_id
+                chatroomId: selectedRoom !== null && selectedRoom.detail_current.chatroom_id
             });
             changeMessage()
         }
@@ -166,7 +157,7 @@ export default function Index() {
         return () => {
             if (socket) {
                 socket.emit('leaveRoom', {
-                    chatroomId: selectedRoom === null ? 1 : selectedRoom.detail_current.chatroom_id
+                    chatroomId: selectedRoom !== null && selectedRoom.detail_current.chatroom_id
                 })
                 setMessages([])
             }
@@ -222,18 +213,51 @@ export default function Index() {
         
     }
 
-    const sendMessage = () => {
+    const changeChatroom = async (selected_room) => {
+        const chatroom_id_new = selected_room.detail_current.chatroom_id;
+
+        await axios.post(`${config.api_host}/api/participants/updateZeroUnreadMessageByChatroomIdUserId`, {
+            user_id: userId,
+            chatroom_id: chatroom_id_new
+        }).then(response => {
+            // console.log(response.data)
+        }).catch(err => {})
+
+        let participants = await axios.post(url, {
+            user_id: userId,
+        }).then(response => {
+           return response.data.participants.map((val) => val)
+        }).catch(err => {
+            // console.log(err)
+        })
+        setRooms(participants)
+        
+        setSelectedRoom(selected_room);
+    }
+
+    const sendMessage = async () => {
         const user_id = userId
         const message = messageRef.current.value
         const chatroomId = selectedRoom.detail_current.chatroom_id
 
         if(socket) {
-            socket.emit('chatroomMessage', {
+            await axios.post(`${config.api_host}/api/participants/updateZeroUnreadMessageByChatroomIdUserId`, {
+                user_id: userId,
+                chatroom_id: chatroomId
+            }).then(response => {
+            }).catch(err => {})
+
+            await socket.emit('chatroomMessage', {
                 chatroomId: chatroomId,
                 message: message,
                 user_id: user_id
             })
-
+            
+            await axios.post(`${config.api_host}/api/participants/updateValueUnreadMessageByChatroomIdUserId`, {
+                user_id: userId,
+                chatroom_id: chatroomId
+            }).then(response => {
+            }).catch(err => {})
         }
 
         messageRef.current.value = ""
@@ -245,6 +269,7 @@ export default function Index() {
     }
 
     const selectNewMessage = async (chatroom_id, user_owned_id, user_saved_id) => {
+        // change participant
         let participant_result = await axios.post(`${config.api_host}/api/participants/getAllDetailParticipantByUidAndContactId`, {
             chatroom_id: chatroom_id,
             user_owned_id: user_owned_id,
@@ -255,7 +280,6 @@ export default function Index() {
         }).catch(err => {
             // console.log(err)
         })
-        
         setSelectedRoom(() => getContent(participant_result[0]));
         setIsNewMessage(() => false);
     }
@@ -307,14 +331,11 @@ export default function Index() {
                                 const room = getContent(value).room
                                 const last_message = getContent(value) && getContent(value).messages.length > 0 ?
                                                         getContent(value).messages[getContent(value).messages.length - 1].message : ''
-
                                 if (last_message !== '' && val_content.detail_current.chatroom_detail[0].room_type === '1') {
                                     return (
                                         <Row 
                                             key={value && value.participant_id} 
-                                            onClick={() => {
-                                                setSelectedRoom(() => getContent(value));
-                                            }} 
+                                            onClick={() => changeChatroom(getContent(value))} 
                                             className="align-items-center py-3 bg-secondary border-bottom" 
                                             style={{ cursor: 'pointer' }}>
                                                 <Col xs="auto">
@@ -329,10 +350,22 @@ export default function Index() {
                                                     </div>  
                                                 </Col>
                                                 <Col className="text-white">
-                                                    <h5 className="mb-0">
-                                                        { getIfInContact(room.user_id) !== null ? getIfInContact(room.user_id).name : room.name }
-                                                    </h5>
-                                                    <span>{ last_message }</span>
+                                                    <Row>
+                                                        <Col>
+                                                            <h5 className="mb-0">
+                                                                { getIfInContact(room.user_id) !== null ? getIfInContact(room.user_id).name : room.name }
+                                                            </h5>
+                                                            <span>
+                                                                { userTyping !== null && userTyping.id !== userId && userTyping.chatroom_id === val_content.detail_current.chatroom_id ? 
+                                                                    `${userTyping.name} is Typing` : last_message }
+                                                            </span>
+                                                        </Col>
+                                                        <Col xs="auto">
+                                                            <Badge pill variant="warning">
+                                                                { val_content && val_content.detail_current.unread_message > 0 ? val_content.detail_current.unread_message : '' }
+                                                            </Badge>
+                                                        </Col>
+                                                    </Row>
                                                 </Col>
                                         </Row>
                                     )
@@ -370,19 +403,22 @@ export default function Index() {
                                         }
                                     </h5>
                                     <div>
-                                        {/* userTyping !== null && userTyping.id !== userId ?
-                                            `${userTyping.name} is Typing` :
-                                            selectedRoom && selectedRoom.detail_current.users.map((v, i) => {
-                                                if (i > 2) {
-                                                    return '...';
-                                                } else {
-                                                    return v.user_id !== userId ? `${v.name}, ` : ''
-                                                }
-                                            }).join('')+'You'  */}
                                         { 
                                             (() => {
-                                                
-                                            })
+                                                if (selectedRoom && selectedRoom.detail_current.chatroom_detail[0].room_type === '2') {
+                                                    return userTyping !== null && userTyping.id !== userId ?
+                                                        `${userTyping.name} is Typing` :
+                                                        selectedRoom && selectedRoom.detail_current.users.map((v, i) => {
+                                                            if (i > 2) {
+                                                                return '...';
+                                                            } else {
+                                                                return v.user_id !== userId ? `${v.name}, ` : ''
+                                                            }
+                                                        }).join('')+'You'
+                                                } else {
+                                                    return userTyping !== null && userTyping.id !== userId ? `${userTyping.name} is Typing` : ''
+                                                }
+                                            })()
                                         } 
                                     </div>
                                 </Col>

@@ -10,16 +10,34 @@ async function store(req, res) {
     });
 }
 
+async function updateZeroUnreadMessageByChatroomIdUserId(req, res) {
+    const chatroom_id = parseInt(req.body.chatroom_id);
+    const user_id = parseInt(req.body.user_id);
+    let updateResult;
+    try {
+        await Participant.updateMany(
+            { $and : [ {chatroom_id: chatroom_id}, {user_id: user_id} ] }, 
+            { $set : { unread_message: 0 }}
+        );
+        updateResult = await Participant.find({
+            $and : [ {chatroom_id: chatroom_id}, {user_id: user_id} ]
+        });
+    } catch(err) {}
+
+    return res.json({
+        updateResult
+    })
+}
+
 async function updateValueUnreadMessageByChatroomIdUserId(req, res) {
     const chatroom_id = parseInt(req.body.chatroom_id);
-    const user_id = req.body.user_id.map(v => parseInt(v));
-    const value = parseInt(req.body.value);
+    const user_id = parseInt(req.body.user_id);
     await Participant.updateMany(
-        { $and: [{chatroom_id: chatroom_id}, {user_id: { $in: user_id }}] }, 
-        { $set: { unread_message: value }}
+        { $and : [ {chatroom_id: chatroom_id}, {user_id: {$ne: user_id}} ] }, 
+        { $inc : { unread_message: 1 }}
     );
     let updateResult = await Participant.find({
-        $and: [{chatroom_id: chatroom_id}, {user_id: { $in: user_id }}]
+        $and : [ {chatroom_id: chatroom_id}, {user_id: {$ne: user_id}} ]
     });
     return res.json({
         updateResult
@@ -224,6 +242,7 @@ async function deleteAll(req, res) {
 
 
 module.exports = {
+    updateZeroUnreadMessageByChatroomIdUserId,
     updateValueUnreadMessageByChatroomIdUserId,
     getAllDetailParticipantByUidAndContactId,
     getAllDetailParticipantsByUid,

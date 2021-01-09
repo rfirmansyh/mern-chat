@@ -1,5 +1,6 @@
 const User = require('./app/users/model');
 const Message = require('./app/messages/model');
+const Participant = require('./app/participants/model');
 
 exports.socketApp = function(server) {
     const io = require('socket.io')(server);
@@ -39,6 +40,7 @@ exports.socketApp = function(server) {
         socket.on('typing', async ({chatroomId, user_id}) => {
             const user = await User.findOne({ user_id: user_id });
             io.to(chatroomId).emit('user_typing', {
+                chatroom_id: chatroomId,
                 id: user_id,
                 name: user.name
             })
