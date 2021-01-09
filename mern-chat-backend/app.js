@@ -10,6 +10,7 @@ const { decodeToken } = require('./app/auth/middleware');
 
 // router
 const authRouter = require('./app/auth/router');
+const userRouter = require('./app/users/router');
 const messageRouter = require('./app/messages/router');
 const participantRouter = require('./app/participants/router');
 const chatroomRouter = require('./app/chatrooms/router');
@@ -43,6 +44,7 @@ app.use(cors());
 app.use(decodeToken());
 // routes
 app.use('/auth', authRouter);
+app.use('/api/users', userRouter);
 app.use('/api/messages', messageRouter);
 app.use('/api/chatrooms', chatroomRouter);
 app.use('/api/participants', participantRouter);

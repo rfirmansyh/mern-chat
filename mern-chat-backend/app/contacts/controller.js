@@ -76,6 +76,8 @@ async function store(req, res) {
             foreignField: 'user_id',
             as: 'users'
         }},
+        // jika salah 1 user sudah mensavenya maka pakai chatroom id yang dipakai user tersebut
+        // jadi jangan tampilkan users yang sudah ada dicontact
         {$match: {
             'contacts' : {$elemMatch: {
                 user_saved_id: user_owned_id, user_owned_id: user_saved_id,
@@ -83,27 +85,27 @@ async function store(req, res) {
         }},
         {$project: {participants: 0}}
     ]);
-    try {
-        if (participant.length === 0) {
-            await (async() => {
-                let new_chatroom = new Chatroom({
-                    name: `c_uid_${user_owned_id}_${user_saved_id}`,
-                    type: '1'
-                });
-                new_chatroom = await new_chatroom.save();
-                payload['chatroom_id'] = new_chatroom.chatroom_id;
-            })();
-        } else {
-            payload['chatroom_id'] = participant[0].chatroom_id;
-        }
-    } catch(err) {
-        console.log('df');
-    }
+    // try {
+    //     if (participant.length === 0) {
+    //         await (async() => {
+    //             let new_chatroom = new Chatroom({
+    //                 name: `c_uid_${user_owned_id}_${user_saved_id}`,
+    //                 type: '1'
+    //             });
+    //             new_chatroom = await new_chatroom.save();
+    //             payload['chatroom_id'] = new_chatroom.chatroom_id;
+    //         })();
+    //     } else {
+    //         payload['chatroom_id'] = participant[0].chatroom_id;
+    //     }
+    // } catch(err) {
+    //     console.log('df');
+    // }
     let contact = new Contact(payload);
-    await contact.save();
+    // await contact.save();
 
     return res.json({
-        data: contact
+        data: participant
     });
 }
 

@@ -2,7 +2,7 @@ import React from 'react'
 import axios from 'axios'
 import io from 'socket.io-client'
 import { config } from 'config'
-import { Col, Container, Row, Button, Form, Modal, ListGroup, Badge } from 'react-bootstrap'
+import { Col, Container, Row, Button, Form, Modal, ListGroup, Badge, Card } from 'react-bootstrap'
 import img_user from 'assets/img/users/default-user.png'
 
 export default function Index() {
@@ -11,18 +11,24 @@ export default function Index() {
     // chatrooms as contact
     const [rooms, setRooms] = React.useState([]);
     const [selectedRoom, setSelectedRoom] = React.useState(null);
+
     const [contacts, setContacts] = React.useState([]);
+    const [contactsShowed, setContactsShowed] = React.useState([]);
+
     const [messages, setMessages] = React.useState([]);
     const [socket, setSocket] = React.useState(null);
     const [userId, setUserId] = React.useState(0);
 
     const [userTyping, setUserTyping] = React.useState(null);
+
+    const [users, setUsers] = React.useState([]);
     
     const messageRef = React.useRef('');
     const contentMessage = React.useRef(null)
 
     // modal
     const [isNewMessage, setIsNewMessage] = React.useState(false);
+    const [isNewContact, setIsNewContact] = React.useState(false);
 
     const url = `${config.api_host}/api/participants/getAllDetailParticipantsByUid`;
 
@@ -36,7 +42,6 @@ export default function Index() {
                 }
             })
         } else {
-            // console.log('waiiting data')
         }
         return contact
     }
@@ -47,7 +52,6 @@ export default function Index() {
                 user_id: userId
             }
         })
-        // console.log(newSocket);
         newSocket.on('connect', () => {
             alert('Connected !');
         })
@@ -75,7 +79,6 @@ export default function Index() {
         }).then(response => {
            return response.data.participants.map((val) => val)
         }).catch(err => {
-            // console.log(err)
         })
         setRooms(participants)
         setSelectedRoom(getContent(participants[0]))
@@ -91,7 +94,6 @@ export default function Index() {
         }).then(response => {
            return response.data.participants.map((val) => val)
         }).catch(err => {
-            // console.log(err)
         })
         participants.sort((x, y) => {
             return x.chatroom_id == mess.chatroom_id ? -1 : y.chatroom_id === mess.chatroom_id ? 1 : 0;
@@ -107,12 +109,13 @@ export default function Index() {
         }).catch(err => {})
         
         setContacts(contacts_result)
+        setContactsShowed(contacts_result)
     })
 
     // setup effect
     React.useEffect(() => {
-        let id = parseInt(prompt('Masukan User id'));
-        // let id = 1;3
+        // let id = parseInt(prompt('Masukan User id'));
+        let id = 1;
         setUserId(id);
         setupSocket(id);
         getrooms(id);
@@ -181,14 +184,19 @@ export default function Index() {
         // console.log(userTyping);
     }, [userTyping])
 
+    // make all contacts keep showing
+    React.useEffect(() => {
+        setTimeout(() => {
+            setContactsShowed(() => contacts)
+        }, 300);
+    }, [isNewMessage])
+
     const changeMessage = async () => {
         let temp_messages = await axios.post( `${config.api_host}/api/messages/chatroomId`, {
             chatroom_id: selectedRoom === null ? 1 : selectedRoom.detail_current.chatroom_id,
         }).then(response => {
-            // console.log(response.data)
             return response.data
         }).catch(err => {
-            // console.log(err)
         })
         await setMessages(temp_messages.data)
         contentMessage.current.scrollTop = contentMessage.current.scrollHeight
@@ -220,7 +228,6 @@ export default function Index() {
             user_id: userId,
             chatroom_id: chatroom_id_new
         }).then(response => {
-            // console.log(response.data)
         }).catch(err => {})
 
         let participants = await axios.post(url, {
@@ -228,7 +235,6 @@ export default function Index() {
         }).then(response => {
            return response.data.participants.map((val) => val)
         }).catch(err => {
-            // console.log(err)
         })
         setRooms(participants)
         
@@ -265,7 +271,6 @@ export default function Index() {
 
     const newMessage = () => {
         setIsNewMessage(true)
-        // console.log(contacts);
     }
 
     const selectNewMessage = async (chatroom_id, user_owned_id, user_saved_id) => {
@@ -275,13 +280,29 @@ export default function Index() {
             user_owned_id: user_owned_id,
             user_saved_id: user_saved_id,
         }).then(response => {
-            // console.log(response.data.participants.map(v => console.log(v)))
             return response.data.participant
         }).catch(err => {
-            // console.log(err)
         })
         setSelectedRoom(() => getContent(participant_result[0]));
         setIsNewMessage(() => false);
+    }
+
+    const handleNewContact = async (event) => {
+        setIsNewMessage(false)
+
+        let users = await axios.post(`${config.api_host}/api/users/getAllUsersExceptsByUserId`, {
+            user_id: userId
+        }).then(response => {
+            return response.data.users
+        }).catch(err => {
+        })
+        setUsers(users)
+        setIsNewContact(true);
+    }
+
+    const handleSearchContactNewMessage = (event) => {
+        let query = event.target.value;
+        setContactsShowed(() => contacts.filter(contact => contact.name.toLowerCase().indexOf(query) >= 0))
     }
 
     if (socket === null && userId === null) {
@@ -476,12 +497,14 @@ export default function Index() {
             {/* Modal New Message */}
             <Modal show={isNewMessage} onHide={() => setIsNewMessage(false)}>
                 <Modal.Header closeButton>
-                    <Modal.Title>Modal heading</Modal.Title>
+                    <Modal.Title>Buat Pesan</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
-                    <Form.Control type="text" className="mb-3" placeholder="Cari Kontak" />
+                    <Form.Control 
+                        type="text" className="mb-3" placeholder="Cari Kontak" 
+                        onKeyUp={handleSearchContactNewMessage} />
                     <ListGroup defaultActiveKey="#link1">
-                        {contacts !== null ? contacts.map((contact) => {
+                        {contactsShowed !== null ? contactsShowed.map((contact) => {
                             return (
                                 <ListGroup.Item action 
                                     onClick={() => selectNewMessage(contact.chatroom_id, contact.user_owned_id, contact.user_saved_id)}>
@@ -493,9 +516,55 @@ export default function Index() {
                     </ListGroup>
                 </Modal.Body>
                 <Modal.Footer>
-                <Button variant="secondary" onClick={() => setIsNewMessage(false)}>
-                    Batal
-                </Button>
+                    <Button variant="secondary" onClick={() => setIsNewMessage(false)}>
+                        Batal
+                    </Button>
+                    <Button variant="dark" onClick={handleNewContact}>
+                        Tambah Kontak
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            {/* End of Modal New Message */}
+
+            {/* Modal New Contact */}
+            <Modal size="lg" show={isNewContact} onHide={() => setIsNewContact(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Tambah Kontak Baru</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    {/* List Users */}
+                    <Row>
+                        {users && users.map(user => (
+                            <Col xs="6">
+                                <Card style={{ cursor: 'pointer' }}>
+                                    <Card.Body>
+                                        <Row noGutters={true}>
+                                            <Col xs="auto">
+                                                <div 
+                                                    className="bg-light"
+                                                    style={{ 
+                                                        width: '50px', 
+                                                        height: '50px', 
+                                                        borderRadius: '50%', 
+                                                        overflow: 'hidden', } }>
+                                                    <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            </Col>
+                                            <Col className='pl-3'>
+                                                <h6 className="mb-0">{user.name}</h6>
+                                                <small className="text-secondary">{user.email}</small>
+                                            </Col>
+                                        </Row>
+                                    </Card.Body>
+                                </Card>
+                            </Col>
+                        ))}
+                    </Row>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setIsNewContact(false)}>
+                        Batal
+                    </Button>
                 </Modal.Footer>
             </Modal>
             {/* End of Modal New Message */}
