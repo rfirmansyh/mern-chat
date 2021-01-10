@@ -55,62 +55,67 @@ async function getInContactByUserId(req, res) {
 
 async function store(req, res) {
     const payload = req.body;
-    user_owned_id = parseInt(payload.user_owned_id);
+    let participant = [],
+        contact_check = [],
     user_saved_id = parseInt(payload.user_saved_id);
-    let participant = await Participant.aggregate([
-        {$lookup: {
-            from: 'chatrooms',
-            localField: 'chatroom_id',
-            foreignField: 'chatroom_id',
-            as: 'chatroom_detail'
-        }},
-        {$lookup: {
-            from: 'contacts',
-            localField: 'user_id',
-            foreignField: 'user_owned_id',
-            as: 'contacts'
-        }},
-        {$lookup: {
-            from: 'users',
-            localField: 'participants.user_id',
-            foreignField: 'user_id',
-            as: 'users'
-        }},
-        // jika salah 1 user sudah mensavenya maka pakai chatroom id yang dipakai user tersebut
-        // jadi jangan tampilkan users yang sudah ada dicontact
-        {$match: {
-            'contacts' : {$elemMatch: {
-                user_saved_id: user_owned_id, user_owned_id: user_saved_id,
-            }}
-        }},
-        {$project: {participants: 0}}
-    ]);
-    // try {
-    //     if (participant.length === 0) {
-    //         await (async() => {
-    //             let new_chatroom = new Chatroom({
-    //                 name: `c_uid_${user_owned_id}_${user_saved_id}`,
-    //                 type: '1'
-    //             });
-    //             new_chatroom = await new_chatroom.save();
-    //             payload['chatroom_id'] = new_chatroom.chatroom_id;
-    //         })();
-    //     } else {
-    //         payload['chatroom_id'] = participant[0].chatroom_id;
-    //     }
-    // } catch(err) {
-    //     console.log('df');
-    // }
+    user_owned_id = parseInt(payload.user_owned_id);
+    try {
+        contact_check = await Contact.find({
+            $or: [
+                {$and: [
+                    {user_saved_id: user_saved_id},
+                    {user_owned_id: user_owned_id},
+                ]},
+                {$and: [
+                    {user_saved_id: user_owned_id},
+                    {user_owned_id: user_saved_id},
+                ]},
+            ]
+        })
+
+        if (contact_check.length !== 0) {
+            participant = await Participant.aggregate([
+                {$lookup: {
+                    from: 'chatrooms',
+                    localField: 'chatroom_id',
+                    foreignField: 'chatroom_id',
+                    as: 'chatroom_detail'
+                }},
+                {$lookup: {
+                    from: 'users',
+                    localField: 'participants.user_id',
+                    foreignField: 'user_id',
+                    as: 'users'
+                }},
+                {$match: {
+                    chatroom_id: contact_check[0].chatroom_id
+                }},
+                {$project: {participants: 0}}
+            ]);
+        } 
+
+        if (participant.length === 0) {
+            await (async() => {
+                let new_chatroom = new Chatroom({
+                    name: `c_uid_${user_owned_id}_${user_saved_id}`,
+                    type: '1'
+                });
+                new_chatroom = await new_chatroom.save();
+                payload['chatroom_id'] = await new_chatroom.chatroom_id;
+            })();
+        } else {
+            payload['chatroom_id'] = await participant[0].chatroom_id;
+        }
+    } catch(err) {
+        console.log('error store contacts');
+    }
     let contact = new Contact(payload);
-    // await contact.save();
+    await contact.save();
 
     return res.json({
-        data: participant
+        contact,
     });
 }
-
-
-
 
 
 

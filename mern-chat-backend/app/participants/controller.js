@@ -1,4 +1,5 @@
 const Participant = require('../participants/model');
+const Chatroom = require('../chatrooms/model');
 
 async function store(req, res) {
     const payload = req.body;
@@ -8,6 +9,37 @@ async function store(req, res) {
     return res.json({
         data: participant
     });
+}
+
+async function storeGroup(req, res) {
+    const payload = req.body;
+    let chatroom_name = payload.name,
+        user_ids = payload.user_ids,
+        newChatroomGroup = null,
+        participants = [];
+
+    newChatroomGroup = new Chatroom({
+        name: chatroom_name,
+        room_type: '2'
+    });
+    await newChatroomGroup.save();
+
+    participants = await user_ids.map(v => {
+        participant = new Participant({
+            chatroom_id: newChatroomGroup.chatroom_id,
+            user_id: parseInt(v),
+            unread_message: 0
+        });
+        return participant
+    })
+    participants.map(async (participant) => {
+        participant.save()
+    })
+    
+    return res.json({
+        newChatroomGroup,
+        participants
+    })
 }
 
 async function updateZeroUnreadMessageByChatroomIdUserId(req, res) {
@@ -248,6 +280,7 @@ module.exports = {
     getAllDetailParticipantsByUid,
     getUsersParticipantByUid,
     getParticpantsByPUid,
+    storeGroup,
     store,
     deleteAll
 }
