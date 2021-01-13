@@ -1,7 +1,7 @@
 import React from 'react'
 
 
-function App() {
+function App(props) {
     React.useEffect(() => {
     }, [])
     

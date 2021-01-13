@@ -2,10 +2,14 @@ import React from 'react'
 import axios from 'axios'
 import io from 'socket.io-client'
 import { config } from 'config'
-import { Col, Container, Row, Button, Form, Modal, ListGroup, Badge, Card } from 'react-bootstrap'
+import { withRouter } from 'react-router-dom';
+import { Col, Container, Row, Button, Form, Modal, ListGroup, Badge, Card, Alert, Dropdown } from 'react-bootstrap'
+import 'bootstrap-icons/font/bootstrap-icons.css'
 import img_user from 'assets/img/users/default-user.png'
+import img_group from 'assets/img/users/default-group.png'
 
-export default function Index() {
+
+function Index(props) {
     // jika participant lebih dari 1 (bukan group) tampilkan nama user
 
     // chatrooms as contact
@@ -23,8 +27,10 @@ export default function Index() {
 
     const [users, setUsers] = React.useState([]);
     const [userSelected, setUserSelected] = React.useState(null);
+    const [userIdsChecked, setUserIdsChecked] = React.useState([]);
     
     const tempContactNameRef = React.useRef('');
+    const tempGroupNameRef = React.useRef('');
     const contentMessageRef = React.useRef(null)
     const messageRef = React.useRef('');
     
@@ -32,8 +38,59 @@ export default function Index() {
     const [isNewMessage, setIsNewMessage] = React.useState(false);
     const [isNewContact, setIsNewContact] = React.useState(false);
     const [isConfirmContact, setIsConfirmContact] = React.useState(false);
+    const [isNewGroup, setIsNewGroup] = React.useState(false);
 
     const url = `${config.api_host}/api/participants/getAllDetailParticipantsByUid`;
+
+    const getAuthUser = async () => {
+        let user = await axios.get(`${config.api_host}/auth/me`, {
+            headers: {
+                Authorization: "Bearer " + localStorage.getItem('token'),
+            }
+        }).then(response => {
+            return response.data
+        }).catch(err => {
+            console.log(err)
+        });
+        
+        if (user !== undefined || user !== null) {
+            setUserId(user.user_id)
+            setupSocket(user.user_id);
+            getrooms(user.user_id);
+            getContacts(user.user_id);
+        }
+    }
+
+    const logout = async () => {
+        await axios.post(`${config.api_host}/auth/logout`, {
+            headers: {
+                Authorization: "Bearer " + localStorage.getItem('token'),
+            }
+        }).then(response => {
+            localStorage.removeItem('token');
+            return response.data;
+        }).catch(err => {
+            console.log(err)
+        });
+
+        props.history.push('/login');
+    }
+
+    const setupSocket = (userId) =>{
+        var newSocket = io(`${config.api_host}`, {
+            query: {
+                user_id: userId
+            }
+        })
+        newSocket.on('connect', () => {
+            console.log('Connected !');
+        })
+        newSocket.emit('joinRoom', {
+            chatroomId: selectedRoom && selectedRoom.detail_current.chatroom_id
+        })
+
+        setSocket(newSocket);
+    }
 
     const getIfInContact = (contact_id) => {
         let contact = null;
@@ -49,22 +106,6 @@ export default function Index() {
         return contact
     }
     
-    const setupSocket = (userId) =>{
-        var newSocket = io(`${config.api_host}`, {
-            query: {
-                user_id: userId
-            }
-        })
-        newSocket.on('connect', () => {
-            alert('Connected !');
-        })
-        newSocket.emit('joinRoom', {
-            chatroomId: selectedRoom && selectedRoom.detail_current.chatroom_id
-        })
-
-        setSocket(newSocket);
-    }
-
     const handleType = (e) => {
         const chatroomId = selectedRoom.detail_current.chatroom_id
         if (socket) {
@@ -120,12 +161,8 @@ export default function Index() {
 
     // setup effect
     React.useEffect(() => {
-        let id = parseInt(prompt('Masukan User id'));
-        // let id = 1;
-        setUserId(id);
-        setupSocket(id);
-        getrooms(id);
-        getContacts(id);
+        getAuthUser();
+        // let id = parseInt(prompt('Masukan User id'));
 
         return () => {
         }
@@ -145,7 +182,6 @@ export default function Index() {
 
     // get broadcast last message
     React.useEffect(() => {
-        console.log('message refreshed');
         if (socket) {
             socket.on('newOnContacMessage', async (message) => {
                 await refreshLastMessage(userId, message)
@@ -187,7 +223,6 @@ export default function Index() {
         setTimeout(() => {
             setUserTyping(null)
         }, 2000);
-        // console.log(userTyping);
     }, [userTyping])
 
     // make all contacts keep showing
@@ -206,6 +241,18 @@ export default function Index() {
         })
         await setMessages(temp_messages.data)
         contentMessageRef.current.scrollTop = contentMessageRef.current.scrollHeight
+    }
+
+    // remove value in array
+    const removeA = (arr) => {
+        var what, a = arguments, L = a.length, ax;
+        while (L > 1 && arr.length) {
+            what = a[--L];
+            while ((ax= arr.indexOf(what)) !== -1) {
+                arr.splice(ax, 1);
+            }
+        }
+        return arr;
     }
 
     // check group or user
@@ -270,6 +317,7 @@ export default function Index() {
                 chatroom_id: chatroomId
             }).then(response => {
             }).catch(err => {})
+
         }
 
         messageRef.current.value = ""
@@ -278,6 +326,11 @@ export default function Index() {
     const newMessage = async () => {
         await getContacts(userId)
         setIsNewMessage(true)
+    }
+
+    const newGroup = async () => {
+        await getContacts(userId)
+        setIsNewGroup(true)
     }
 
     const selectNewMessage = async (chatroom_id, user_owned_id, user_saved_id) => {
@@ -329,7 +382,6 @@ export default function Index() {
         setIsConfirmContact(false)
         newMessage()
 
-        console.log(newContact)
         
     }
 
@@ -337,6 +389,36 @@ export default function Index() {
         let query = event.target.value;
         setContactsShowed(() => contacts.filter(contact => contact.name.toLowerCase().indexOf(query) >= 0))
     }
+
+    const handleCheckContactGroup = async (event) => {
+        if (event.target.checked) {
+            setUserIdsChecked([...userIdsChecked, event.target.value])
+        } else {
+            let userIds = userIdsChecked;
+            if (userIds.indexOf(event.target.value) > -1) {
+                userIds.splice(userIds.indexOf(event.target.value), 1)
+            }
+            setUserIdsChecked(userIds)
+        }
+    }
+
+    const handleConfirmNewGroup = async (event) => {
+        let user_ids = userIdsChecked;
+        user_ids.push(userId)
+
+        let newContact = await axios.post(`${config.api_host}/api/participants/storeGroup`, {
+            name: tempGroupNameRef.current.value,
+            user_ids: user_ids
+        }).then(response => {
+            return response.data
+        }).catch(err => {
+        })
+        getrooms(userId)
+        setIsNewGroup(false)
+    }
+
+    React.useEffect(() => {
+    }, [userIdsChecked])
 
     if (socket === null && userId === null) {
         return (
@@ -347,13 +429,13 @@ export default function Index() {
     }
     return (
         <>
-            <div style={{ width: '100vw', height: '100vh' }}>
-                <Container className="h-100">
+            <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }} className="bg-whitesmoke">
+                <Container  className="h-100 shadow">
                     <Row className="h-100">
                         {/* Sidebar */}
                         <Col lg="4" className="bg-light h-100 border-right">
                             {/* Profile */}
-                            <Row className="align-items-center justify-content-between bg-info py-3">
+                            <Row className="align-items-center justify-content-between bg-primary py-3">
                                 <Col>
                                     <div 
                                         className="bg-light"
@@ -367,70 +449,126 @@ export default function Index() {
                                 </Col>
                                 <Col xs="auto" className='px-0'>
                                     <Button 
-                                        variant="outline-light" 
+                                        variant="outline-white" 
                                         size="sm" onClick={() => newMessage()} >
                                             Pesan Baru
                                     </Button>
                                 </Col>
                                 <Col xs="auto" className='px-1'>
-                                    <Button variant="outline-light" size="sm">Grup Baru</Button>
+                                    <Button 
+                                        variant="outline-white" 
+                                        size="sm" onClick={() => newGroup()}>
+                                            Grup Baru
+                                    </Button>
                                 </Col>
                                 <Col xs="auto" className='pl-0'>
-                                    <Button variant="outline-light" size="sm">Menu</Button>
+                                    <Dropdown>
+                                        <Dropdown.Toggle size="sm" variant="outline-white" id="dropdown-basic">
+                                            Menu
+                                        </Dropdown.Toggle>
+
+                                        <Dropdown.Menu>
+                                            <Dropdown.Item onClick={logout} className="d-flex align-items-center justify-content-between text-danger">
+                                                Logout <i class="bi bi-box-arrow-right"></i> 
+                                            </Dropdown.Item>
+                                        </Dropdown.Menu>
+                                    </Dropdown>
                                 </Col>
                             </Row>
                             {/* Contact List */}
-                            {rooms.map((value, i) => {
-                                const val_content = getContent(value)
-                                const room = getContent(value).room
-                                const last_message = getContent(value) && getContent(value).messages.length > 0 ?
-                                                        getContent(value).messages[getContent(value).messages.length - 1].message : ''
-                                if (last_message !== '' && val_content.detail_current.chatroom_detail[0].room_type === '1') {
-                                    return (
-                                        <Row 
-                                            key={value && value.participant_id} 
-                                            onClick={() => changeChatroom(getContent(value))} 
-                                            className="align-items-center py-3 bg-secondary border-bottom" 
-                                            style={{ cursor: 'pointer' }}>
-                                                <Col xs="auto">
-                                                    <div 
-                                                        className="bg-light"
-                                                        style={{ 
-                                                            width: '60px', 
-                                                            height: '60px', 
-                                                            borderRadius: '50%', 
-                                                            overflow: 'hidden', } }>
-                                                        <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                    </div>  
-                                                </Col>
-                                                <Col className="text-white">
-                                                    <Row>
-                                                        <Col>
-                                                            <h5 className="mb-0">
-                                                                { getIfInContact(room.user_id) !== null ? getIfInContact(room.user_id).name : room.name }
-                                                            </h5>
-                                                            <span>
-                                                                { userTyping !== null && userTyping.id !== userId && userTyping.chatroom_id === val_content.detail_current.chatroom_id ? 
-                                                                    `${userTyping.name} is Typing` : last_message }
-                                                            </span>
-                                                        </Col>
-                                                        <Col xs="auto">
-                                                            <Badge pill variant="warning">
-                                                                { val_content && val_content.detail_current.unread_message > 0 ? val_content.detail_current.unread_message : '' }
-                                                            </Badge>
-                                                        </Col>
-                                                    </Row>
-                                                </Col>
-                                        </Row>
-                                    )
-                                } 
-                            })}
+                            <div style={{ height: 'calc(95% - 20px)', margin: '0 -15px', padding: '0 15px 40px', overflowX: 'hidden', overflowY: 'auto', scrollBehavior: 'smooth' }}>
+                                {rooms.map((value, i) => {
+                                    const val_content = getContent(value)
+                                    const room = getContent(value).room
+                                    const last_message = getContent(value) && getContent(value).messages.length > 0 ?
+                                                            getContent(value).messages[getContent(value).messages.length - 1].message : ''
+                                    if (last_message !== '' && val_content.detail_current.chatroom_detail[0].room_type === '1') {
+                                        return (
+                                            <Row 
+                                                key={value && value.participant_id} 
+                                                onClick={() => changeChatroom(getContent(value))} 
+                                                className="align-items-center py-3 bg-whitesmoke border-bottom" 
+                                                style={{ cursor: 'pointer' }}>
+                                                    <Col xs="auto">
+                                                        <div 
+                                                            className="bg-secondary"
+                                                            style={{ 
+                                                                padding: '5px',
+                                                                width: '60px', 
+                                                                height: '60px', 
+                                                                borderRadius: '50%', 
+                                                                overflow: 'hidden', } }>
+                                                            <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                                        </div>  
+                                                    </Col>
+                                                    <Col className="text-dark">
+                                                        <Row>
+                                                            <Col>
+                                                                <h5 className="mb-0">
+                                                                    { getIfInContact(room.user_id) !== null ? getIfInContact(room.user_id).name : room.name }
+                                                                </h5>
+                                                                <span>
+                                                                    { userTyping !== null && userTyping.id !== userId && userTyping.chatroom_id === val_content.detail_current.chatroom_id ? 
+                                                                        `${userTyping.name} is Typing` : last_message }
+                                                                </span>
+                                                            </Col>
+                                                            <Col xs="auto">
+                                                                <Badge pill variant="warning">
+                                                                    { val_content && val_content.detail_current.unread_message > 0 ? val_content.detail_current.unread_message : '' }
+                                                                </Badge>
+                                                            </Col>
+                                                        </Row>
+                                                    </Col>
+                                            </Row>
+                                        )
+                                    } else {
+                                        return (
+                                            <Row 
+                                                key={value && value.participant_id} 
+                                                onClick={() => changeChatroom(getContent(value))} 
+                                                className="align-items-center py-3 bg-whitesmoke border-bottom" 
+                                                style={{ cursor: 'pointer' }}>
+                                                    <Col xs="auto">
+                                                        <div 
+                                                            className="bg-secondary"
+                                                            style={{ 
+                                                                padding: '5px',
+                                                                width: '60px', 
+                                                                height: '60px', 
+                                                                borderRadius: '50%', 
+                                                                overflow: 'hidden', } }>
+                                                            <img src={img_group} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+                                                        </div>  
+                                                    </Col>
+                                                    <Col className="text-dark">
+                                                        <Row>
+                                                            <Col>
+                                                                <h5 className="mb-0">
+                                                                    { room.name }
+                                                                </h5>
+                                                                <span>
+                                                                    { userTyping !== null && userTyping.id !== userId && userTyping.chatroom_id === val_content.detail_current.chatroom_id ? 
+                                                                        `${userTyping.name} is Typing` : last_message }
+                                                                </span>
+                                                            </Col>
+                                                            <Col xs="auto">
+                                                                <Badge pill variant="warning">
+                                                                    { val_content && val_content.detail_current.unread_message > 0 ? val_content.detail_current.unread_message : '' }
+                                                                </Badge>
+                                                            </Col>
+                                                        </Row>
+                                                    </Col>
+                                            </Row>
+                                        )
+                                    }
+                                })}    
+                            </div>
                         </Col>
                         
                         {/* Content Message */}
                         <Col className="h-100" style={{ overflow: 'hidden'}} >
                             {/* Row Profile group/other */}
-                            <Row className="align-items-center justify-content-between bg-dark py-3">
+                            <Row className="align-items-center justify-content-between bg-primary py-3">
                                 <Col xs="auto">
                                     <div 
                                         className="bg-light"
@@ -456,7 +594,7 @@ export default function Index() {
                                             })()
                                         }
                                     </h5>
-                                    <div>
+                                    <small className="text-light">
                                         { 
                                             (() => {
                                                 if (selectedRoom && selectedRoom.detail_current.chatroom_detail[0].room_type === '2') {
@@ -474,7 +612,7 @@ export default function Index() {
                                                 }
                                             })()
                                         } 
-                                    </div>
+                                    </small>
                                 </Col>
                                 <Col xs="auto" className="">
                                     <Button variant="outline-light" size="sm">Menu</Button>
@@ -482,7 +620,7 @@ export default function Index() {
                             </Row>
 
                             {/* Message Box and list messages */}
-                            <Row ref={contentMessageRef} className="bg-light" style={{ height: 'calc(100% - 140px)', overflowX: 'hidden', overflowY: 'auto', scrollBehavior: 'smooth' }}>
+                            <Row ref={contentMessageRef} className="bg-whitesmoke" style={{ height: 'calc(100% - 140px)', overflowX: 'hidden', overflowY: 'auto', scrollBehavior: 'smooth' }}>
                                 <Col className="h-100 p-4">
                                     {messages && messages.map((value, idx) => {
                                         if (value.user_id === userId) {
@@ -568,7 +706,7 @@ export default function Index() {
                     {/* List Users */}
                     <Row>
                         {users && users.map(user => (
-                            <Col xs="6">
+                            <Col xs="6" className="mb-4"> 
                                 <Card style={{ cursor: 'pointer' }} onClick={() => {
                                     handleAddContact(user)
                                 }}>
@@ -650,6 +788,72 @@ export default function Index() {
                     </Button>
                 </Modal.Footer>
             </Modal>
+            {/* End of Modal Confirm add Contract */}
+
+            {/* Modal New Group */}
+            <Modal show={isNewGroup} onHide={() => setIsNewGroup(false)}>
+                <Modal.Header closeButton>
+                    <Modal.Title>Buat Group</Modal.Title>
+                </Modal.Header>
+                <Modal.Body>
+                    <Card style={{ cursor: 'pointer' }}>
+                        <Card.Body>
+                            <Row noGutters={true} className="justify-content-center">
+                                <Col xs="12" className="d-flex align-items-center justify-content-center">
+                                    <div 
+                                        className="bg-light"
+                                        style={{ 
+                                            width: '120px', 
+                                            height: '120px', 
+                                            borderRadius: '50%', 
+                                            overflow: 'hidden', } }>
+                                        <img src={img_group} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    </div>
+                                </Col>
+                                <Col xs="12" sm="8">
+                                    <Form.Control ref={tempGroupNameRef} placeholder="Nama Grup" maxLength={25} className="text-center mb-3" />
+                                </Col>
+                            </Row>
+                        </Card.Body>
+                    </Card>
+                    <Card>
+                        <Card.Body>
+                            <h5>Pilih Kontak</h5>
+                            <Form.Control 
+                                type="text" className="mb-3" placeholder="Cari Kontak" 
+                                onKeyUp={handleSearchContactNewMessage} />
+                            <ListGroup defaultActiveKey="#link1">
+                                {contactsShowed !== null ? contactsShowed.map((contact) => {
+                                    return (
+                                        <div key={contact.contact_id} className="mb-3">
+                                            <Form.Check 
+                                                custom
+                                                type="checkbox"
+                                                id={contact.contact_id}
+                                                label={contact.name}
+                                                value={contact.user_saved_id}
+                                                onChange={handleCheckContactGroup}
+                                            />
+                                        </div>
+                                    )
+                                }) : ''
+                                }
+                            </ListGroup>
+                        </Card.Body>
+                    </Card>
+                </Modal.Body>
+                <Modal.Footer>
+                    <Button variant="secondary" onClick={() => setIsNewGroup(false)}>
+                        Batal
+                    </Button>
+                    <Button variant="primary" onClick={handleConfirmNewGroup}>
+                        Konfirmasi
+                    </Button>
+                </Modal.Footer>
+            </Modal>
+            {/* End of Modal New Group */}
         </>
     )
 }
+
+export default withRouter(Index)
