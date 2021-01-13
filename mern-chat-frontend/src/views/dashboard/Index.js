@@ -7,6 +7,8 @@ import { Col, Container, Row, Button, Form, Modal, ListGroup, Badge, Card, Alert
 import 'bootstrap-icons/font/bootstrap-icons.css'
 import img_user from 'assets/img/users/default-user.png'
 import img_group from 'assets/img/users/default-group.png'
+import logo from 'assets/img/mernchat-light.png'
+import illustration from 'assets/img/mernchat-illust.png'
 
 
 function Index(props) {
@@ -52,12 +54,16 @@ function Index(props) {
         }).catch(err => {
             console.log(err)
         });
+
+        console.log(user)
         
-        if (user !== undefined || user !== null) {
+        if (user !== undefined && user !== null && user.error !== 1) {
             setUserId(user.user_id)
             setupSocket(user.user_id);
             getrooms(user.user_id);
             getContacts(user.user_id);
+        } else {
+            props.history.push('/')
         }
     }
 
@@ -73,7 +79,7 @@ function Index(props) {
             console.log(err)
         });
 
-        props.history.push('/login');
+        props.history.push('/');
     }
 
     const setupSocket = (userId) =>{
@@ -126,9 +132,11 @@ function Index(props) {
         })
         if (participants.length > 0) {
             setRooms(participants)
-            setSelectedRoom(getContent(participants[0]))
+            // setSelectedRoom(getContent(participants[0]))
             setMessages(getContent(participants[0]).messages)
-            contentMessageRef.current.scrollTop = contentMessageRef.current.scrollHeight
+            if (contentMessageRef.current !== null) {
+                contentMessageRef.current.scrollTop = contentMessageRef.current.scrollHeight
+            }
         }
         
     }, [])
@@ -185,7 +193,9 @@ function Index(props) {
         if (socket) {
             socket.on('newOnContacMessage', async (message) => {
                 await refreshLastMessage(userId, message)
-                contentMessageRef.current.scrollTop = contentMessageRef.current.scrollHeight
+                if (contentMessageRef.current !== null) {
+                    contentMessageRef.current.scrollTop = contentMessageRef.current.scrollHeight
+                }
             });
         }
     }, [socket]);
@@ -430,22 +440,14 @@ function Index(props) {
     return (
         <>
             <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }} className="bg-whitesmoke">
-                <Container  className="h-100 shadow">
+                <Container  className="h-100 border shadow">
                     <Row className="h-100">
                         {/* Sidebar */}
                         <Col lg="4" className="bg-light h-100 border-right">
                             {/* Profile */}
-                            <Row className="align-items-center justify-content-between bg-primary py-3">
-                                <Col>
-                                    <div 
-                                        className="bg-light"
-                                        style={{ 
-                                            width: '50px', 
-                                            height: '50px', 
-                                            borderRadius: '50%', 
-                                            overflow: 'hidden', } }>
-                                        <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    </div>
+                            <Row className="align-items-center justify-content-between bg-primary py-3"  style={{ height: '80px' }}>
+                                <Col className="pl-4">
+                                    <img src={logo} style={{ width: '30px' }} />    
                                 </Col>
                                 <Col xs="auto" className='px-0'>
                                     <Button 
@@ -566,68 +568,81 @@ function Index(props) {
                         </Col>
                         
                         {/* Content Message */}
-                        <Col className="h-100" style={{ overflow: 'hidden'}} >
-                            {/* Row Profile group/other */}
-                            <Row className="align-items-center justify-content-between bg-primary py-3">
-                                <Col xs="auto">
-                                    <div 
-                                        className="bg-light"
-                                        style={{ 
-                                            width: '50px', 
-                                            height: '50px', 
-                                            borderRadius: '50%', 
-                                            overflow: 'hidden', } }>
-                                        <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                    </div>
-                                </Col>
-                                <Col>
-                                    <h5 className="text-white mb-0">
-                                        { 
-                                            (() => {
-                                                if (selectedRoom && selectedRoom.detail_current.chatroom_detail[0].room_type === '1') {
-                                                    return getIfInContact(selectedRoom.room.user_id) !== null ? 
-                                                            getIfInContact(selectedRoom.room.user_id).name : 
-                                                            selectedRoom.room.name
-                                                } else {
-                                                    return selectedRoom && selectedRoom.room.name
-                                                }
-                                            })()
-                                        }
-                                    </h5>
-                                    <small className="text-light">
-                                        { 
-                                            (() => {
-                                                if (selectedRoom && selectedRoom.detail_current.chatroom_detail[0].room_type === '2') {
-                                                    return userTyping !== null && userTyping.id !== userId ?
-                                                        `${userTyping.name} is Typing` :
-                                                        selectedRoom && selectedRoom.detail_current.users.map((v, i) => {
-                                                            if (i > 2) {
-                                                                return '...';
-                                                            } else {
-                                                                return v.user_id !== userId ? `${v.name}, ` : ''
-                                                            }
-                                                        }).join('')+'You'
-                                                } else {
-                                                    return userTyping !== null && userTyping.id !== userId ? `${userTyping.name} is Typing` : ''
-                                                }
-                                            })()
-                                        } 
-                                    </small>
-                                </Col>
-                                <Col xs="auto" className="">
-                                    <Button variant="outline-light" size="sm">Menu</Button>
-                                </Col>
-                            </Row>
+                        {selectedRoom != null ?
+                            <Col className="h-100" style={{ overflow: 'hidden'}} >
+                                {/* Row Profile group/other */}
+                                <Row className="align-items-center justify-content-between bg-primary py-3" style={{ height: '80px' }}>
+                                    <Col xs="auto">
+                                        <div 
+                                            className="bg-light"
+                                            style={{ 
+                                                width: '50px', 
+                                                height: '50px', 
+                                                borderRadius: '50%', 
+                                                overflow: 'hidden', } }>
+                                            <img src={img_user} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        </div>
+                                    </Col>
+                                    <Col>
+                                        <h5 className="text-white mb-0">
+                                            { 
+                                                (() => {
+                                                    if (selectedRoom && selectedRoom.detail_current.chatroom_detail[0].room_type === '1') {
+                                                        return getIfInContact(selectedRoom.room.user_id) !== null ? 
+                                                                getIfInContact(selectedRoom.room.user_id).name : 
+                                                                selectedRoom.room.name
+                                                    } else {
+                                                        return selectedRoom && selectedRoom.room.name
+                                                    }
+                                                })()
+                                            }
+                                        </h5>
+                                        <small className="text-light">
+                                            { 
+                                                (() => {
+                                                    if (selectedRoom && selectedRoom.detail_current.chatroom_detail[0].room_type === '2') {
+                                                        return userTyping !== null && userTyping.id !== userId ?
+                                                            `${userTyping.name} is Typing` :
+                                                            selectedRoom && selectedRoom.detail_current.users.map((v, i) => {
+                                                                if (i > 2) {
+                                                                    return '...';
+                                                                } else {
+                                                                    return v.user_id !== userId ? `${v.name}, ` : ''
+                                                                }
+                                                            }).join('')+'You'
+                                                    } else {
+                                                        return userTyping !== null && userTyping.id !== userId ? `${userTyping.name} is Typing` : ''
+                                                    }
+                                                })()
+                                            } 
+                                        </small>
+                                    </Col>
+                                    <Col xs="auto" className="">
+                                        <Button variant="outline-light" size="sm">Menu</Button>
+                                    </Col>
+                                </Row>
 
-                            {/* Message Box and list messages */}
-                            <Row ref={contentMessageRef} className="bg-whitesmoke" style={{ height: 'calc(100% - 140px)', overflowX: 'hidden', overflowY: 'auto', scrollBehavior: 'smooth' }}>
-                                <Col className="h-100 p-4">
-                                    {messages && messages.map((value, idx) => {
-                                        if (value.user_id === userId) {
+                                {/* Message Box and list messages */}
+                                <Row ref={contentMessageRef} className="bg-whitesmoke" style={{ height: 'calc(100% - 140px)', overflowX: 'hidden', overflowY: 'auto', scrollBehavior: 'smooth' }}>
+                                    <Col className="h-100 p-4">
+                                        {messages && messages.map((value, idx) => {
+                                            if (value.user_id === userId) {
+                                                return (
+                                                    <Row key={value.__id} className="justify-content-end mb-3">
+                                                        <Col xs="8" className="d-flex flex-column align-items-end justify-content-end">
+                                                            <div className="bg-primary text-white d-inline-block p-2 rounded-lg">
+                                                                {value.message}
+                                                            </div>
+                                                            <div style={{ fontSize: '12px' }}>{value.user_name}</div>
+                                                            <div className="text-secondary" style={{ fontSize: '10px' }}>{value.createdAt}</div>
+                                                        </Col>
+                                                    </Row>
+                                                )
+                                            }
                                             return (
-                                                <Row key={value.__id} className="justify-content-end mb-3">
-                                                    <Col xs="8" className="d-flex flex-column align-items-end justify-content-end">
-                                                        <div className="bg-primary text-white d-inline-block p-2 rounded-lg">
+                                                <Row key={value.__id} className="mb-3">
+                                                    <Col xs="8">
+                                                        <div className="bg-secondary text-white d-inline-block p-2 rounded-lg">
                                                             {value.message}
                                                         </div>
                                                         <div style={{ fontSize: '12px' }}>{value.user_name}</div>
@@ -635,31 +650,30 @@ function Index(props) {
                                                     </Col>
                                                 </Row>
                                             )
-                                        }
-                                        return (
-                                            <Row key={value.__id} className="mb-3">
-                                                <Col xs="8">
-                                                    <div className="bg-secondary text-white d-inline-block p-2 rounded-lg">
-                                                        {value.message}
-                                                    </div>
-                                                    <div style={{ fontSize: '12px' }}>{value.user_name}</div>
-                                                    <div className="text-secondary" style={{ fontSize: '10px' }}>{value.createdAt}</div>
-                                                </Col>
-                                            </Row>
-                                        )
-                                    })}
-                                    
-                                </Col>
-                            </Row>
-                            <Row className="align-items-center" style={{ height: '60px' }}>
-                                <Col>
-                                    <Form.Control ref={messageRef} onKeyUp={(e) => handleType(e)} placeholder="Type Message..." />
-                                </Col>
-                                <Col xs="auto">
-                                    <Button onClick={(e) => sendMessage()} variant="primary">Send</Button>
-                                </Col>
-                            </Row>
-                        </Col>
+                                        })}
+                                        
+                                    </Col>
+                                </Row>
+                                <Row className="align-items-center" style={{ height: '60px' }}>
+                                    <Col>
+                                        <Form.Control ref={messageRef} onKeyUp={(e) => handleType(e)} placeholder="Type Message..." />
+                                    </Col>
+                                    <Col xs="auto">
+                                        <Button onClick={(e) => sendMessage()} variant="primary">Send</Button>
+                                    </Col>
+                                </Row>
+                            </Col> :
+                            <Col className="h-100">
+                                <Row className="h-100 align-items-center justify-content-center">
+                                    <Col xs="8" className="text-center">
+                                        <img src={illustration} class="img-fluid mb-4" />
+                                        <h3>Tetap Terhubung Bersama Mernchat</h3>
+                                        <div>Mernchat dibuat untuk memenuih tugas Sister Terdistribusi Semester 5</div>
+                                    </Col>
+                                </Row>
+                            </Col>
+                        }
+                        
                         
                     </Row>
                 </Container>

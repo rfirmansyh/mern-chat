@@ -9,15 +9,20 @@ import Dashboard from './views/dashboard/Index'
 
 // TESTING
 import TestRender from 'views/test/TestRender';
+import Register from 'views/auth/Register';
 
 export default function Routes() {
     return (
         <BrowserRouter>
             <Switch>
-                <Route path="/" component={App} exact/>
+                {/* <Route path="/" component={App} exact/> */}
                 <Route 
-                    path="/login" 
+                    path="/" 
                     render={() => <Login />}
+                    exact/>
+                <Route 
+                    path="/register" 
+                    render={() => <Register />}
                     exact/>
                 <Route 
                     path="/dashboard" 

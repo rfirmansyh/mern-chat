@@ -84,7 +84,7 @@ function Login(props) {
                                         </Button>
                                     </Col>
                                     <Col xs="12" sm="auto">
-                                        <Button variant="outline-primary" type="submit" className="btn-block" onClick={loginUser}>
+                                        <Button variant="outline-primary" type="submit" className="btn-block" onClick={() => props.history.push('/register')}>
                                             Registrasi
                                         </Button>
                                     </Col>
